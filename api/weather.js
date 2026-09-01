@@ -3,7 +3,7 @@ export default async function handler(req, res) {
 
   const TOKENS = {
     farm: "f2b8d4a6c1e9f3b7d5a2c8e6f1b4d7qw",
-    main: "a7c3e9f1b5d2a8c6e4f7b9d1c3a5e2xzard"
+    main: "a7c3e9f1b5d2a8c6e4f7b9d1c3a5e2xz"
   };
 
   const token = TOKENS[station] || TOKENS.farm;
@@ -23,3 +23,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ status: false, message: error.message });
   }
 }
+
