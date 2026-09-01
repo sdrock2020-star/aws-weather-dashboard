@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const response = await fetch("https://fzevergreenagro.com/api/v1/device-data", {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${token}`,
+        "X-API-KEY": token,
         "Accept": "application/json"
       }
     });

@@ -5,14 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
   
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
@@ -22,22 +18,14 @@
     const { useState, useEffect } = React;
 
     const STATIONS = [
-      {
-        id: "farm",
-        name: "Bhubaneshwar - Farm",
-        badge: "Agro Field Station"
-      },
-      {
-        id: "main",
-        name: "Bhubaneshwar - Main",
-        badge: "Central Observatory"
-      }
+      { id: "farm", name: "Bhubaneshwar - Farm" },
+      { id: "main", name: "Bhubaneshwar - Main" }
     ];
 
     function MetricCard({ title, value, unit, icon, color, timestamp }) {
       return (
-        <div className="bg-slate-900/80 border border-slate-800 backdrop-blur-md rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</span>
             <div className={`p-2.5 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center`}>
               <i data-lucide={icon} className="w-5 h-5"></i>
@@ -69,19 +57,15 @@
         setLoading(true);
         setError(null);
         try {
-          // Route through the Vercel Serverless Function to bypass CORS
           const response = await fetch(`/api/weather?station=${station.id}`);
-          
-          if (!response.ok) {
-            throw new Error(`API returned HTTP ${response.status}`);
-          }
-          
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
           const resData = await response.json();
           if (resData.status) {
             setData(resData);
             setLastRefreshed(new Date().toLocaleTimeString());
           } else {
-            throw new Error(resData.message || "Failed to parse device metrics.");
+            throw new Error(resData.message || "Failed to load device metrics.");
           }
         } catch (err) {
           setError(err.message);
@@ -97,9 +81,7 @@
       }, [selectedStation]);
 
       useEffect(() => {
-        if (window.lucide) {
-          window.lucide.createIcons();
-        }
+        if (window.lucide) window.lucide.createIcons();
       }, [data, loading]);
 
       const getMetric = (type) => {
@@ -112,28 +94,24 @@
 
       return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
           <header className="flex flex-col md:flex-row md:items-center justify-between pb-8 border-b border-slate-800 gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-                  <i data-lucide="cloud-sun-rain" className="w-6 h-6"></i>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black text-white">AWS Live Monitoring Portal</h1>
-                  <p className="text-xs text-slate-400">ICAR-Indian Institute of Water Management</p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                <i data-lucide="cloud-sun-rain" className="w-6 h-6"></i>
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-white">AWS Live Monitoring Portal</h1>
+                <p className="text-xs text-slate-400">ICAR-Indian Institute of Water Management</p>
               </div>
             </div>
 
-            {/* Station Selector & Refresh */}
             <div className="flex items-center gap-3">
               <div className="inline-flex rounded-xl bg-slate-900 border border-slate-800 p-1">
                 {STATIONS.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setSelectedStation(s)}
-                    className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
                       selectedStation.id === s.id
                         ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
                         : "text-slate-400 hover:text-white"
@@ -146,22 +124,20 @@
               <button
                 onClick={() => fetchData(selectedStation)}
                 disabled={loading}
-                className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition"
               >
                 <i data-lucide="refresh-cw" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
               </button>
             </div>
           </header>
 
-          {/* Error Banner */}
           {error && (
             <div className="mt-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-3">
               <i data-lucide="alert-triangle" className="w-5 h-5 flex-shrink-0"></i>
-              <span>Unable to fetch real-time stream: {error}</span>
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Station Status Meta */}
           <div className="mt-6 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2 bg-slate-900/40 px-4 py-2.5 rounded-xl border border-slate-800/60">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5">
@@ -173,10 +149,10 @@
             <span>Last Sync: <strong className="text-slate-200">{lastRefreshed || "--"}</strong></span>
           </div>
 
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+          {/* Core Weather & Environment Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mt-6">
             <MetricCard
-              title="Air Temperature"
+              title="Temperature"
               value={getMetric("temperature")?.value}
               unit={getMetric("temperature")?.unit || "°C"}
               icon="thermometer"
@@ -184,7 +160,7 @@
               timestamp={getMetric("temperature")?.created_at}
             />
             <MetricCard
-              title="Precipitation / Rainfall"
+              title="Rainfall"
               value={getMetric("rainfall")?.value}
               unit={getMetric("rainfall")?.unit || "mm"}
               icon="cloud-rain"
@@ -192,7 +168,7 @@
               timestamp={getMetric("rainfall")?.created_at}
             />
             <MetricCard
-              title="Relative Humidity"
+              title="Humidity"
               value={getMetric("humidity")?.value}
               unit={getMetric("humidity")?.unit || "%"}
               icon="droplets"
@@ -200,20 +176,36 @@
               timestamp={getMetric("humidity")?.created_at}
             />
             <MetricCard
-              title="Wind Speed"
-              value={getMetric("wind")?.value || getMetric("wind_speed")?.value}
-              unit={getMetric("wind")?.unit || "m/s"}
+              title="Air Pressure"
+              value={getMetric("air_pressure")?.value}
+              unit={getMetric("air_pressure")?.unit || "Kpa"}
+              icon="gauge"
+              color="bg-purple-500"
+              timestamp={getMetric("air_pressure")?.created_at}
+            />
+            <MetricCard
+              title="PM 2.5"
+              value={getMetric("pm25")?.value}
+              unit={getMetric("pm25")?.unit || "ug/m³"}
               icon="wind"
-              color="bg-teal-500"
-              timestamp={getMetric("wind")?.created_at}
+              color="bg-orange-500"
+              timestamp={getMetric("pm25")?.created_at}
+            />
+            <MetricCard
+              title="PM 10"
+              value={getMetric("pm10")?.value}
+              unit={getMetric("pm10")?.unit || "ug/m³"}
+              icon="activity"
+              color="bg-rose-500"
+              timestamp={getMetric("pm10")?.created_at}
             />
           </div>
 
-          {/* Raw Readings Table */}
+          {/* Raw Telemetry Records */}
           <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
               <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
-              Raw Telemetry Feeds
+              Live Telemetry Feeds
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
