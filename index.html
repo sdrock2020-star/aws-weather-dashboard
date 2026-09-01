@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
   
   <!-- Tailwind CSS CDN -->
@@ -14,48 +14,25 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#ecfdf5',
-              500: '#10b981',
-              600: '#059669',
-              900: '#064e3b',
-            }
-          }
-        }
-      }
-    }
-  </script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect } = React;
 
     const STATIONS = [
       {
         id: "farm",
         name: "Bhubaneshwar - Farm",
-        token: "f2b8d4a6c1e9f3b7d5a2c8e6f1b4d7qw",
         badge: "Agro Field Station"
       },
       {
         id: "main",
         name: "Bhubaneshwar - Main",
-        token: "a7c3e9f1b5d2a8c6e4f7b9d1c3a5e2xzard",
         badge: "Central Observatory"
       }
     ];
-
-    const API_ENDPOINT = "https://fzevergreenagro.com/api/v1/device-data";
 
     function MetricCard({ title, value, unit, icon, color, timestamp }) {
       return (
@@ -87,24 +64,18 @@
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState(null);
-      const chartRef = useRef(null);
-      const chartInstance = useRef(null);
 
       const fetchData = async (station) => {
         setLoading(true);
         setError(null);
         try {
-          const response = await fetch(API_ENDPOINT, {
-            headers: {
-              'Authorization': `Bearer ${station.token}`,
-              'Accept': 'application/json'
-            }
-          });
-
+          // Route through the Vercel Serverless Function to bypass CORS
+          const response = await fetch(`/api/weather?station=${station.id}`);
+          
           if (!response.ok) {
             throw new Error(`API returned HTTP ${response.status}`);
           }
-
+          
           const resData = await response.json();
           if (resData.status) {
             setData(resData);
@@ -150,7 +121,7 @@
                 </div>
                 <div>
                   <h1 className="text-2xl font-black text-white">AWS Live Monitoring Portal</h1>
-                  <p className="text-xs text-slate-400">ICAR-IIWM Agro-Meteorological Station Telemetry</p>
+                  <p className="text-xs text-slate-400">ICAR-Indian Institute of Water Management</p>
                 </div>
               </div>
             </div>
@@ -186,7 +157,7 @@
           {error && (
             <div className="mt-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-3">
               <i data-lucide="alert-triangle" className="w-5 h-5 flex-shrink-0"></i>
-              <span>Unable to fetch real-time stream: {error}. Check CORS policy or API key validity.</span>
+              <span>Unable to fetch real-time stream: {error}</span>
             </div>
           )}
 
@@ -238,7 +209,7 @@
             />
           </div>
 
-          {/* All Sensor Readings Table */}
+          {/* Raw Readings Table */}
           <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
               <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
