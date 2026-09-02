@@ -1,5 +1,20 @@
-<script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
     const STATIONS = [
       { id: "farm", name: "Bhubaneshwar - Farm" },
@@ -60,14 +75,12 @@
         }
       };
 
-      // Fetch on mount or when station changes
       useEffect(() => {
         fetchData(selectedStation);
         const interval = setInterval(() => fetchData(selectedStation), 60000);
         return () => clearInterval(interval);
       }, [selectedStation.id]);
 
-      // Re-run icons safely after React finishes DOM paint
       useEffect(() => {
         const timer = setTimeout(() => {
           if (window.lucide) {
@@ -107,7 +120,6 @@
                 {STATIONS.map((s) => (
                   <button
                     key={s.id}
-                    disabled={loading && selectedStation.id === s.id}
                     onClick={() => {
                       if (selectedStation.id !== s.id) {
                         setSelectedStation(s);
@@ -151,7 +163,6 @@
             <span>Last Sync: <strong className="text-slate-200">{lastRefreshed || "--"}</strong></span>
           </div>
 
-          {/* Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mt-6">
             <MetricCard
               title="Temperature"
@@ -203,7 +214,6 @@
             />
           </div>
 
-          {/* Telemetry Table */}
           <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
               <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
@@ -223,7 +233,7 @@
                 <tbody className="divide-y divide-slate-800">
                   {data?.data && data.data.length > 0 ? (
                     data.data.slice(0, 30).map((item, idx) => (
-                      <tr key={`${item.id || idx}-${item.created_at}`} className="hover:bg-slate-800/40 transition">
+                      <tr key={idx} className="hover:bg-slate-800/40 transition">
                         <td className="py-3 px-4 font-semibold text-slate-100 capitalize">{item.name || item.data_class}</td>
                         <td className="py-3 px-4 font-mono text-slate-400">{item.class_num || "--"}</td>
                         <td className="py-3 px-4 font-bold text-emerald-400">{item.value}</td>
@@ -248,4 +258,5 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
-  
+</body>
+</html>
