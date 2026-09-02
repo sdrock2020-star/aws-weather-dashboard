@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -59,10 +58,14 @@
         try {
           const response = await fetch(`/api/weather?station=${station.id}`);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
           const resData = await response.json();
+
           if (resData.status) {
-            setData(resData);
+            // Sort telemetry so latest created_at is always at index 0
+            let records = Array.isArray(resData.data) ? [...resData.data] : [];
+            records.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            setData({ ...resData, data: records });
             setLastRefreshed(new Date().toLocaleTimeString());
           } else {
             throw new Error(resData.message || "Failed to load device metrics.");
@@ -84,11 +87,16 @@
         if (window.lucide) window.lucide.createIcons();
       }, [data, loading]);
 
+      // Exact parameter match to eliminate soil_temperature / soil_humidity overlaps
       const getMetric = (type) => {
         if (!data || !data.data) return null;
-        return data.data.find(d => 
+        const matches = data.data.filter(d => 
           (d.data_class && d.data_class.toLowerCase() === type.toLowerCase()) || 
-          (d.name && d.name.toLowerCase().includes(type.toLowerCase()))
+          (d.name && d.name.toLowerCase() === type.toLowerCase())
+        );
+        if (!matches.length) return null;
+        return matches.reduce((latest, current) => 
+          new Date(current.created_at) > new Date(latest.created_at) ? current : latest
         );
       };
 
@@ -149,12 +157,12 @@
             <span>Last Sync: <strong className="text-slate-200">{lastRefreshed || "--"}</strong></span>
           </div>
 
-          {/* Core Weather & Environment Cards */}
+          {/* Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mt-6">
             <MetricCard
               title="Temperature"
               value={getMetric("temperature")?.value}
-              unit={getMetric("temperature")?.unit || "°C"}
+              unit={getMetric("temperature")?.unit === "?" ? "°C" : (getMetric("temperature")?.unit || "°C")}
               icon="thermometer"
               color="bg-amber-500"
               timestamp={getMetric("temperature")?.created_at}
@@ -201,7 +209,7 @@
             />
           </div>
 
-          {/* Raw Telemetry Records */}
+          {/* Raw Feeds Table */}
           <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
               <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
@@ -225,7 +233,7 @@
                         <td className="py-3 px-4 font-semibold text-slate-100 capitalize">{item.name || item.data_class}</td>
                         <td className="py-3 px-4 font-mono text-slate-400">{item.class_num || "--"}</td>
                         <td className="py-3 px-4 font-bold text-emerald-400">{item.value}</td>
-                        <td className="py-3 px-4">{item.unit || "--"}</td>
+                        <td className="py-3 px-4">{item.unit === "?" ? "°C" : (item.unit || "--")}</td>
                         <td className="py-3 px-4 text-slate-400">{item.created_at}</td>
                       </tr>
                     ))
