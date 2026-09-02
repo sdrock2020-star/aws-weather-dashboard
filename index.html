@@ -14,7 +14,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useMemo } = React;
 
     const STATIONS = [
       { id: "farm", name: "Bhubaneshwar - Farm" },
@@ -23,21 +23,21 @@
 
     function MetricCard({ title, value, unit, icon, color, timestamp }) {
       return (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</span>
-            <div className={`p-2.5 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center`}>
-              <i data-lucide={icon} className="w-5 h-5"></i>
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col justify-between hover:border-slate-700 transition">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{title}</span>
+            <div className={`p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center`}>
+              <i data-lucide={icon} className="w-4 h-4"></i>
             </div>
           </div>
           <div>
             <div className="flex items-baseline space-x-1.5">
-              <span className="text-3xl font-extrabold text-white tracking-tight">{value ?? "--"}</span>
-              <span className="text-sm font-medium text-slate-400">{unit}</span>
+              <span className="text-2xl font-extrabold text-white tracking-tight">{value ?? "--"}</span>
+              <span className="text-xs font-medium text-slate-400">{unit}</span>
             </div>
             {timestamp && (
-              <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
-                <i data-lucide="clock" className="w-3 h-3"></i> {timestamp}
+              <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1 truncate">
+                <i data-lucide="clock" className="w-3 h-3 flex-shrink-0"></i> {timestamp}
               </p>
             )}
           </div>
@@ -51,6 +51,7 @@
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState(null);
+      const [selectedDate, setSelectedDate] = useState("");
 
       const fetchData = async (station) => {
         setLoading(true);
@@ -59,7 +60,6 @@
           const response = await fetch(`/api/weather?station=${station.id}`);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const resData = await response.json();
-
           if (resData.status) {
             let records = Array.isArray(resData.data) ? [...resData.data] : [];
             records.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -88,23 +88,43 @@
           }
         }, 50);
         return () => clearTimeout(timer);
-      }, [data, loading]);
+      }, [data, loading, selectedDate]);
+
+      const availableDates = useMemo(() => {
+        if (!data || !data.data) return [];
+        const set = new Set();
+        data.data.forEach(d => {
+          if (d.created_at && d.created_at.length >= 10) {
+            set.add(d.created_at.substring(0, 10));
+          }
+        });
+        return Array.from(set).sort().reverse();
+      }, [data]);
 
       const getMetric = (type) => {
         if (!data || !data.data) return null;
-        const matches = data.data.filter(d => 
-          (d.data_class && d.data_class.toLowerCase() === type.toLowerCase()) || 
-          (d.name && d.name.toLowerCase() === type.toLowerCase())
-        );
+        const matches = data.data.filter(d => {
+          const nameMatch = (d.data_class && d.data_class.toLowerCase() === type.toLowerCase()) || 
+                            (d.name && d.name.toLowerCase() === type.toLowerCase());
+          const dateMatch = selectedDate ? d.created_at.startsWith(selectedDate) : true;
+          return nameMatch && dateMatch;
+        });
         if (!matches.length) return null;
         return matches.reduce((latest, current) => 
           new Date(current.created_at) > new Date(latest.created_at) ? current : latest
         );
       };
 
+      const filteredRows = useMemo(() => {
+        if (!data || !data.data) return [];
+        return data.data.filter(item => 
+          selectedDate ? item.created_at.startsWith(selectedDate) : true
+        );
+      }, [data, selectedDate]);
+
       return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <header className="flex flex-col md:flex-row md:items-center justify-between pb-8 border-b border-slate-800 gap-4">
+          <header className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
                 <i data-lucide="cloud-sun-rain" className="w-6 h-6"></i>
@@ -115,7 +135,21 @@
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+                <i data-lucide="calendar" className="w-4 h-4 text-emerald-400"></i>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-slate-900 text-slate-200">Latest Transmitted</option>
+                  {availableDates.map(date => (
+                    <option key={date} value={date} className="bg-slate-900 text-slate-200">{date}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="inline-flex rounded-xl bg-slate-900 border border-slate-800 p-1">
                 {STATIONS.map((s) => (
                   <button
@@ -135,6 +169,7 @@
                   </button>
                 ))}
               </div>
+
               <button
                 onClick={() => fetchData(selectedStation)}
                 disabled={loading}
@@ -159,11 +194,16 @@
                 Device: <strong className="text-slate-200">{data?.device?.name || selectedStation.name}</strong>
               </span>
               <span>MAC: <code className="text-slate-300">{data?.device?.mac || "N/A"}</code></span>
+              {selectedDate && (
+                <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Filtering: {selectedDate}
+                </span>
+              )}
             </div>
             <span>Last Sync: <strong className="text-slate-200">{lastRefreshed || "--"}</strong></span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mt-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mt-6">
             <MetricCard
               title="Temperature"
               value={getMetric("temperature")?.value}
@@ -197,11 +237,75 @@
               timestamp={getMetric("air_pressure")?.created_at}
             />
             <MetricCard
+              title="Wind Speed"
+              value={getMetric("wind_velocity")?.value}
+              unit={getMetric("wind_velocity")?.unit || "m/s"}
+              icon="wind"
+              color="bg-teal-500"
+              timestamp={getMetric("wind_velocity")?.created_at}
+            />
+            <MetricCard
+              title="Wind Direction"
+              value={getMetric("wind_direction")?.value}
+              unit={getMetric("wind_direction") ? "°" : ""}
+              icon="compass"
+              color="bg-sky-500"
+              timestamp={getMetric("wind_direction")?.created_at}
+            />
+            <MetricCard
+              title="Solar Radiation"
+              value={getMetric("solar_radiation")?.value}
+              unit={getMetric("solar_radiation")?.unit || "w/m²"}
+              icon="sun"
+              color="bg-yellow-500"
+              timestamp={getMetric("solar_radiation")?.created_at}
+            />
+            <MetricCard
+              title="Sunshine Hours"
+              value={getMetric("sunshine_hours")?.value}
+              unit={getMetric("sunshine_hours")?.unit || "h"}
+              icon="sun-medium"
+              color="bg-orange-400"
+              timestamp={getMetric("sunshine_hours")?.created_at}
+            />
+            <MetricCard
+              title="Soil Moisture"
+              value={getMetric("soil_humidity")?.value}
+              unit={getMetric("soil_humidity")?.unit || "%"}
+              icon="sprout"
+              color="bg-emerald-600"
+              timestamp={getMetric("soil_humidity")?.created_at}
+            />
+            <MetricCard
+              title="Soil Temp"
+              value={getMetric("soil_temperature")?.value}
+              unit={getMetric("soil_temperature")?.unit === "?" ? "°C" : (getMetric("soil_temperature")?.unit || "°C")}
+              icon="thermometer-snowflake"
+              color="bg-lime-600"
+              timestamp={getMetric("soil_temperature")?.created_at}
+            />
+            <MetricCard
+              title="CO2 Level"
+              value={getMetric("co2")?.value}
+              unit={getMetric("co2")?.unit || "PPM"}
+              icon="cloud"
+              color="bg-indigo-500"
+              timestamp={getMetric("co2")?.created_at}
+            />
+            <MetricCard
+              title="Illumination"
+              value={getMetric("illumination")?.value}
+              unit={getMetric("illumination")?.unit || "LUX"}
+              icon="lightbulb"
+              color="bg-amber-400"
+              timestamp={getMetric("illumination")?.created_at}
+            />
+            <MetricCard
               title="PM 2.5"
               value={getMetric("pm25")?.value}
               unit={getMetric("pm25")?.unit || "ug/m³"}
               icon="wind"
-              color="bg-orange-500"
+              color="bg-rose-400"
               timestamp={getMetric("pm25")?.created_at}
             />
             <MetricCard
@@ -212,39 +316,66 @@
               color="bg-rose-500"
               timestamp={getMetric("pm10")?.created_at}
             />
+            <MetricCard
+              title="Battery"
+              value={getMetric("battery_level")?.value}
+              unit={getMetric("battery_level")?.unit || "mV"}
+              icon="battery-charging"
+              color="bg-green-500"
+              timestamp={getMetric("battery_level")?.created_at}
+            />
+            <MetricCard
+              title="Solar Panel"
+              value={getMetric("solar_panel_voltage")?.value}
+              unit={getMetric("solar_panel_voltage")?.unit || "mV"}
+              icon="zap"
+              color="bg-amber-600"
+              timestamp={getMetric("solar_panel_voltage")?.created_at}
+            />
           </div>
 
           <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
-              Live Telemetry Feeds
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-800/60 text-slate-400 uppercase tracking-wider text-[10px]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-2">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="layers" className="w-4 h-4 text-emerald-400"></i>
+                Live Telemetry Feeds ({filteredRows.length} records)
+              </h2>
+              {selectedDate && (
+                <button
+                  onClick={() => setSelectedDate("")}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 underline text-left"
+                >
+                  Clear date filter
+                </button>
+              )}
+            </div>
+            
+            <div className="overflow-x-auto max-h-[500px]">
+              <table className="w-full text-left text-xs text-slate-300 relative">
+                <thead className="bg-slate-800 text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th className="py-3 px-4 rounded-l-lg">Parameter</th>
+                    <th className="py-3 px-4">Parameter</th>
                     <th className="py-3 px-4">Class Code</th>
                     <th className="py-3 px-4">Value</th>
                     <th className="py-3 px-4">Unit</th>
-                    <th className="py-3 px-4 rounded-r-lg">Observed Timestamp</th>
+                    <th className="py-3 px-4">Observed Timestamp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {data?.data && data.data.length > 0 ? (
-                    data.data.slice(0, 30).map((item, idx) => (
+                  {filteredRows.length > 0 ? (
+                    filteredRows.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-800/40 transition">
-                        <td className="py-3 px-4 font-semibold text-slate-100 capitalize">{item.name || item.data_class}</td>
-                        <td className="py-3 px-4 font-mono text-slate-400">{item.class_num || "--"}</td>
-                        <td className="py-3 px-4 font-bold text-emerald-400">{item.value}</td>
-                        <td className="py-3 px-4">{item.unit === "?" ? "°C" : (item.unit || "--")}</td>
-                        <td className="py-3 px-4 text-slate-400">{item.created_at}</td>
+                        <td className="py-2.5 px-4 font-semibold text-slate-100 capitalize">{item.name || item.data_class}</td>
+                        <td className="py-2.5 px-4 font-mono text-slate-400">{item.class_num || "--"}</td>
+                        <td className="py-2.5 px-4 font-bold text-emerald-400">{item.value}</td>
+                        <td className="py-2.5 px-4">{item.unit === "?" ? "°C" : (item.unit || "--")}</td>
+                        <td className="py-2.5 px-4 text-slate-400">{item.created_at}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td colSpan="5" className="py-8 text-center text-slate-500">
-                        {loading ? "Streaming telemetry records..." : "No readings recorded."}
+                        {loading ? "Streaming telemetry records..." : "No readings found for selected filter."}
                       </td>
                     </tr>
                   )}
