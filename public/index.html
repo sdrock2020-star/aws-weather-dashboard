@@ -28,6 +28,7 @@
 
     function MetricCard({ title, value, unit, icon, color, timestamp, isStale }) {
       const displayUnit = unit === "?" ? "°C" : (unit || "");
+
       return (
         <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition">
           <div className="flex items-center justify-between mb-2">
@@ -192,39 +193,32 @@
             {/* Top Institutional Banner with Right-Corner Logo */}
             <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm mb-4">
               <div className="flex items-center justify-between gap-4">
-                
                 {/* Left: Titles */}
                 <div className="flex-grow text-left">
                   <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-tight">
-                    ICAR - Indian Institute of Water Management, Bhubaneswar
+                    ICAR - IIWM Bhubaneswar
                   </h2>
                   <h1 className="text-lg sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white mt-1">
-                    Automated Weather Station Telemetry Dashboard
+                    Automated Weather Station(AWS) Dashboard
                   </h1>
                   <p className="hidden sm:block text-[11px] md:text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-0.5">
-                    Real-Time Agro-Meteorological Monitoring System
+                    Indian Institute of water Management
                   </p>
                 </div>
-
                 {/* Right Corner: Fixed-Dimension Logo */}
-                <div className="flex-shrink-0 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-white/5 rounded-2xl p-1">
-                  <img 
-                    src="/icar.png" 
-                    alt="ICAR Logo" 
-                    className="w-full h-full object-contain drop-shadow-sm"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "https://images.seekd.com/logo-png/43/1/icar-logo-png_seeklogo-431872.png";
-                    }}
-                  />
-                </div>
-
+                {/* Right Corner: Clean Large Logo */}
+                <div className="flex-shrink-0 flex items-center justify-center">
+                <img 
+                  src="/icar.png"
+                  alt="ICAR Logo"
+                  className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 object-contain drop-shadow-md"
+                />  
+              </div>
               </div>
             </div>
 
             {/* Bottom Controls Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-              
               {/* Station Switcher */}
               <div className="inline-flex rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-1 shadow-sm">
                 {STATIONS.map((s) => (
@@ -259,7 +253,7 @@
                   </select>
                 </div>
 
-                {/* CSV Download Only */}
+                {/* CSV Download */}
                 <button
                   onClick={handleDownloadCSV}
                   disabled={!filteredRows.length}
@@ -289,7 +283,6 @@
                   <i data-lucide="refresh-cw" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
                 </button>
               </div>
-
             </div>
           </header>
 
@@ -321,7 +314,7 @@
 
           {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3.5 mt-5">
-            <MetricCard title="Temperature" value={latestMetrics["temperature"]?.value} unit={latestMetrics["temperature"]?.unit || "°C"} icon="thermometer" color="bg-amber-500" timestamp={latestMetrics["temperature"]?.created_at} isStale={checkStale(latestMetrics["temperature"]?.created_at)} />
+            <MetricCard title="Temperature" value={latestMetrics["temperature"]?.value} unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} icon="thermometer" color="bg-amber-500" timestamp={latestMetrics["temperature"]?.created_at} isStale={checkStale(latestMetrics["temperature"]?.created_at)} />
             <MetricCard title="Rainfall" value={latestMetrics["rainfall"]?.value} unit={latestMetrics["rainfall"]?.unit || "mm"} icon="cloud-rain" color="bg-blue-500" timestamp={latestMetrics["rainfall"]?.created_at} isStale={checkStale(latestMetrics["rainfall"]?.created_at)} />
             <MetricCard title="Humidity" value={latestMetrics["humidity"]?.value} unit={latestMetrics["humidity"]?.unit || "%"} icon="droplets" color="bg-cyan-500" timestamp={latestMetrics["humidity"]?.created_at} isStale={checkStale(latestMetrics["humidity"]?.created_at)} />
             <MetricCard title="Air Pressure" value={latestMetrics["air_pressure"]?.value} unit={latestMetrics["air_pressure"]?.unit || "Kpa"} icon="gauge" color="bg-purple-500" timestamp={latestMetrics["air_pressure"]?.created_at} isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} />
@@ -334,7 +327,7 @@
             <MetricCard title="Solar Radiation" value={latestMetrics["solar_radiation"]?.value} unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} icon="sun" color="bg-yellow-500" timestamp={latestMetrics["solar_radiation"]?.created_at} isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} />
             <MetricCard title="Sunshine Hours" value={latestMetrics["sunshine_hours"]?.value} unit={latestMetrics["sunshine_hours"]?.unit || "h"} icon="sun-medium" color="bg-orange-400" timestamp={latestMetrics["sunshine_hours"]?.created_at} isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} />
             <MetricCard title="Soil Moisture" value={latestMetrics["soil_humidity"]?.value} unit={latestMetrics["soil_humidity"]?.unit || "%"} icon="sprout" color="bg-emerald-600" timestamp={latestMetrics["soil_humidity"]?.created_at} isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} />
-            <MetricCard title="Soil Temp" value={latestMetrics["soil_temperature"]?.value} unit={latestMetrics["soil_temperature"]?.unit || "°C"} icon="thermometer-snowflake" color="bg-lime-600" timestamp={latestMetrics["soil_temperature"]?.created_at} isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} />
+            <MetricCard title="Soil Temp" value={latestMetrics["soil_temperature"]?.value} unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} icon="thermometer" color="bg-lime-600" timestamp={latestMetrics["soil_temperature"]?.created_at} isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} />
             <MetricCard title="CO2 Level" value={latestMetrics["co2"]?.value} unit={latestMetrics["co2"]?.unit || "PPM"} icon="cloud" color="bg-indigo-500" timestamp={latestMetrics["co2"]?.created_at} isStale={checkStale(latestMetrics["co2"]?.created_at)} />
             <MetricCard title="Illumination" value={latestMetrics["illumination"]?.value} unit={latestMetrics["illumination"]?.unit || "LUX"} icon="lightbulb" color="bg-amber-400" timestamp={latestMetrics["illumination"]?.created_at} isStale={checkStale(latestMetrics["illumination"]?.created_at)} />
             <MetricCard title="PM 2.5" value={latestMetrics["pm25"]?.value} unit={latestMetrics["pm25"]?.unit || "ug/m³"} icon="wind" color="bg-rose-400" timestamp={latestMetrics["pm25"]?.created_at} isStale={checkStale(latestMetrics["pm25"]?.created_at)} />
@@ -361,6 +354,7 @@
                 </button>
               )}
             </div>
+
             <div className="overflow-x-auto max-h-[450px]">
               <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300 relative whitespace-nowrap">
                 <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
