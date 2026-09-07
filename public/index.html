@@ -30,9 +30,9 @@
     const { useState, useEffect, useMemo } = React;
 
     const STATIONS = [
-      { id: "farm", name: "Bhubaneshwar - Farm" },
-      { id: "main", name: "Bhubaneshwar - Main" }
-    ];
+  { id: "farm", name: "IIWM Mendhasal" },
+  { id: "main", name: "IIWM Campus" }
+];
 
     const clientStationCache = {
       farm: null,
@@ -498,7 +498,7 @@
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></span>
-                Station: <strong className="text-slate-800 dark:text-slate-200">{cardData?.device?.name || selectedStation.name}</strong>
+                Station: <strong className="text-slate-800 dark:text-slate-200">{selectedStation.name}</strong>
               </span>
             </div>
             <div className="flex items-center justify-between sm:justify-end gap-3 text-[11px]">
