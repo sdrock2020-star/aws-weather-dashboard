@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
+  
+  <!-- PWA & Mobile Web App Meta -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#10b981"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link rel="apple-touch-icon" href="/icar.png"/>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -26,29 +34,91 @@
       { id: "main", name: "Bhubaneshwar - Main" }
     ];
 
-    function MetricCard({ title, value, unit, icon, color, timestamp, isStale }) {
-      const displayUnit = unit === "?" ? "°C" : (unit || "");
+    const clientStationCache = {
+      farm: null,
+      main: null
+    };
 
+    // Formats "2026-06-03 04:59:49" -> "03-06-2026 04:59:49"
+    function formatTimestamp(str) {
+      if (!str || typeof str !== "string") return "--";
+      const parts = str.trim().split(/[\sT]+/);
+      if (parts.length >= 2) {
+        const dateParts = parts[0].split("-");
+        if (dateParts.length === 3) {
+          const [year, month, day] = dateParts;
+          const time = parts[1].slice(0, 8);
+          return `${day}-${month}-${year} ${time}`;
+        }
+      }
+      return str;
+    }
+
+    // Safe CPCB NAQI Color & Badge Mapper
+    function getAqiBadge(type, rawVal) {
+      if (rawVal === undefined || rawVal === null) return null;
+      const val = parseFloat(rawVal);
+      if (isNaN(val)) return null;
+
+      if (type === "pm25") {
+        if (val <= 30) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
+        if (val <= 60) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
+        if (val <= 90) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
+        if (val <= 120) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
+        if (val <= 250) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
+        return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+      }
+
+      if (type === "pm10") {
+        if (val <= 50) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
+        if (val <= 100) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
+        if (val <= 250) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
+        if (val <= 350) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
+        if (val <= 430) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
+        return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+      }
+
+      return null;
+    }
+
+    function MetricCard({ title, value, unit, icon, color, timestamp, isStale, badge, isDropped }) {
+      const displayUnit = unit === "?" ? "°C" : (unit || "");
       return (
-        <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition">
+        <div className={`bg-white dark:bg-slate-900/80 border rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between transition ${
+          isDropped 
+            ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5" 
+            : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+        }`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">{title}</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">
+              {title}
+            </span>
             <div className={`p-1.5 sm:p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center flex-shrink-0`}>
               <i data-lucide={icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
             </div>
           </div>
           <div>
-            <div className="flex items-baseline space-x-1.5">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">{value ?? "--"}</span>
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>
+            <div className="flex items-baseline space-x-1.5 flex-wrap">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {isDropped ? "Offline" : (value ?? "--")}
+              </span>
+              {!isDropped && <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
             </div>
-            <div className="mt-2 flex items-center justify-between">
+
+            <div className="mt-2 flex items-center justify-between flex-wrap gap-1">
               {timestamp ? (
-                <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate">
-                  <i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {timestamp}
+                <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono">
+                  <i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
                 </p>
               ) : <div></div>}
-              {isStale && (
+
+              {badge && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.bg}`}>
+                  {badge.label}
+                </span>
+              )}
+
+              {isStale && !isDropped && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   Stale
                 </span>
@@ -61,14 +131,20 @@
 
     function App() {
       const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
-      const [data, setData] = useState(null);
+      const [cardData, setCardData] = useState(null);
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState(null);
+
+      // Diagnostics & Telemetry UI states
+      const [showDiag, setShowDiag] = useState(false);
+      const [showTelemetry, setShowTelemetry] = useState(false);
+      const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
+      const [loadingLogs, setLoadingLogs] = useState(false);
       const [selectedDate, setSelectedDate] = useState("");
-      const [darkMode, setDarkMode] = useState(() => {
-        return localStorage.getItem('theme') !== 'light';
-      });
+      const [downloadingCSV, setDownloadingCSV] = useState(false);
+
+      const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
 
       useEffect(() => {
         if (darkMode) {
@@ -80,120 +156,210 @@
         }
       }, [darkMode]);
 
-      const fetchData = async (station) => {
-        setLoading(true);
-        setError(null);
-        try {
-          const response = await fetch(`/api/weather?station=${station.id}&_t=${Date.now()}`);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const resData = await response.json();
-          if (resData.status) {
-            let records = Array.isArray(resData.data) ? [...resData.data] : [];
-            records.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            setData({ ...resData, data: records });
+      const loadStationSnapshot = async (stationId, isBackground = false) => {
+        if (clientStationCache[stationId]) {
+          if (!isBackground) {
+            setCardData(clientStationCache[stationId]);
             setLastRefreshed(new Date().toLocaleTimeString());
-          } else {
-            throw new Error(resData.message || "Failed to load station metrics.");
+          }
+        } else if (!isBackground) {
+          setLoading(true);
+        }
+
+        try {
+          const res = await fetch(`/api/weather?station=${stationId}&mode=latest`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const resData = await res.json();
+          if (resData && resData.status) {
+            clientStationCache[stationId] = resData;
+            if (selectedStation.id === stationId || !isBackground) {
+              setCardData(resData);
+              setLastRefreshed(new Date().toLocaleTimeString());
+            }
           }
         } catch (err) {
-          setError(err.message);
+          if (!isBackground) setError(err.message);
         } finally {
-          setLoading(false);
+          if (!isBackground) setLoading(false);
+        }
+      };
+
+      const fetchFiveDayLogs = async (stationId) => {
+        setLoadingLogs(true);
+        try {
+          const res = await fetch(`/api/weather?station=${stationId}&mode=recent`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const resData = await res.json();
+          if (resData && resData.status && Array.isArray(resData.data)) {
+            setFiveDaysLogs(resData.data);
+          }
+        } catch (err) {
+          console.error("Telemetry error:", err);
+        } finally {
+          setLoadingLogs(false);
         }
       };
 
       useEffect(() => {
-        fetchData(selectedStation);
-        const interval = setInterval(() => fetchData(selectedStation), 60000);
-        return () => clearInterval(interval);
+        loadStationSnapshot(selectedStation.id, false);
+        setFiveDaysLogs([]);
+        setSelectedDate("");
+
+        if (showTelemetry) {
+          fetchFiveDayLogs(selectedStation.id);
+        }
+
+        const otherStation = STATIONS.find(s => s.id !== selectedStation.id);
+        let timer = null;
+        if (otherStation && !clientStationCache[otherStation.id]) {
+          timer = setTimeout(() => loadStationSnapshot(otherStation.id, true), 300);
+        }
+        return () => { if (timer) clearTimeout(timer); };
       }, [selectedStation.id]);
 
+      const handleStationSwitch = (station) => {
+        if (selectedStation.id === station.id) return;
+        if (clientStationCache[station.id]) {
+          setCardData(clientStationCache[station.id]);
+        }
+        setSelectedStation(station);
+      };
+
+      // Lucide icon refresh
       useEffect(() => {
-        const timer = setTimeout(() => {
-          if (window.lucide) window.lucide.createIcons();
-        }, 50);
-        return () => clearTimeout(timer);
-      }, [data, loading, selectedDate, darkMode]);
-
-      const availableDates = useMemo(() => {
-        if (!data || !data.data) return [];
-        const set = new Set();
-        data.data.forEach(d => {
-          if (d.created_at && d.created_at.length >= 10) {
-            set.add(d.created_at.substring(0, 10));
+        const t = setTimeout(() => {
+          try {
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+              window.lucide.createIcons();
+            }
+          } catch (e) {
+            console.warn("Lucide render suppressed", e);
           }
-        });
-        return Array.from(set).sort().reverse();
-      }, [data]);
-
-      const filteredRows = useMemo(() => {
-        if (!data || !data.data) return [];
-        return data.data.filter(item =>
-          selectedDate ? item.created_at && item.created_at.startsWith(selectedDate) : true
-        );
-      }, [data, selectedDate]);
+        }, 50);
+        return () => clearTimeout(t);
+      }, [cardData, loading, showTelemetry, showDiag, darkMode]);
 
       const latestMetrics = useMemo(() => {
-        if (!data || !data.data) return {};
+        if (!cardData || !Array.isArray(cardData.data)) return {};
         const map = {};
-        for (let i = 0; i < data.data.length; i++) {
-          const item = data.data[i];
-          if (selectedDate && (!item.created_at || !item.created_at.startsWith(selectedDate))) continue;
-          const key = (item.data_class || item.name || "").toLowerCase();
-          if (!map[key] || new Date(item.created_at) > new Date(map[key].created_at)) {
-            map[key] = item;
-          }
+        for (let i = 0; i < cardData.data.length; i++) {
+          const item = cardData.data[i];
+          if (!item) continue;
+          const key = String(item.data_class || item.name || "").toLowerCase().trim();
+          if (key) map[key] = item;
         }
         return map;
-      }, [data, selectedDate]);
+      }, [cardData]);
 
       const newestTimestamp = useMemo(() => {
-        if (!data?.data?.length) return null;
-        return new Date(data.data[0].created_at).getTime();
-      }, [data]);
+        const values = Object.values(latestMetrics);
+        if (!values.length) return null;
+        const times = values
+          .map(v => v.created_at ? new Date(v.created_at).getTime() : 0)
+          .filter(t => !isNaN(t) && t > 0);
+        return times.length ? Math.max(...times) : null;
+      }, [latestMetrics]);
 
       const checkStale = (timestamp) => {
         if (!timestamp || !newestTimestamp) return false;
-        const recordTime = new Date(timestamp).getTime();
-        return (newestTimestamp - recordTime) > 6 * 3600 * 1000;
+        const t = new Date(timestamp).getTime();
+        return !isNaN(t) && (newestTimestamp - t) > 6 * 3600 * 1000;
       };
 
-      const displayedRows = useMemo(() => filteredRows.slice(0, 100), [filteredRows]);
+      const diagnostics = useMemo(() => {
+        const batteryRaw = latestMetrics["battery_level"]?.value;
+        const batteryMv = parseFloat(batteryRaw);
+        const isLowBattery = !isNaN(batteryMv) && batteryMv < 11800;
 
-      const handleDownloadCSV = () => {
-        if (!filteredRows.length) return alert("No records available to export.");
-        const headers = ["Station", "Device Name", "MAC Address", "Parameter", "Class Code", "Value", "Unit", "Observed Timestamp"];
-        const rows = filteredRows.map(item => [
-          `"${selectedStation.name}"`,
-          `"${data?.device?.name || ''}"`,
-          `"${data?.device?.mac || ''}"`,
-          `"${item.name || item.data_class || ''}"`,
-          `"${item.class_num || ''}"`,
-          `"${item.value || ''}"`,
-          `"${item.unit === '?' ? '°C' : (item.unit || '')}"`,
-          `"${item.created_at || ''}"`
-        ]);
-        const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const cleanDate = selectedDate || "all";
-        const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `AWS_${selectedStation.id}_${cleanDate}_${fileTimestamp}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const isTelemetryOffline = newestTimestamp ? (Date.now() - newestTimestamp) > 12 * 3600 * 1000 : false;
+
+        const monitoredList = [
+          "temperature", "rainfall", "humidity", "air_pressure", 
+          "wind_velocity", "solar_radiation", "sunshine_hours", 
+          "soil_humidity", "soil_temperature", "co2", "illumination", 
+          "pm25", "pm10", "battery_level", "solar_panel_voltage"
+        ];
+
+        const dropped = [];
+        for (let i = 0; i < monitoredList.length; i++) {
+          const k = monitoredList[i];
+          const entry = latestMetrics[k];
+          if (!entry || entry.value === null || entry.value === undefined || entry.value === "") {
+            dropped.push(k);
+          }
+        }
+
+        return {
+          isLowBattery,
+          batteryMv,
+          isTelemetryOffline,
+          droppedSensors: dropped,
+          healthy: !isLowBattery && !isTelemetryOffline && dropped.length === 0
+        };
+      }, [latestMetrics, newestTimestamp]);
+
+      const availableDates = useMemo(() => {
+        if (!Array.isArray(fiveDaysLogs) || !fiveDaysLogs.length) return [];
+        const set = new Set();
+        for (let i = 0; i < fiveDaysLogs.length; i++) {
+          const d = fiveDaysLogs[i];
+          if (d && typeof d.created_at === 'string' && d.created_at.length >= 10) {
+            set.add(d.created_at.substring(0, 10));
+          }
+        }
+        return Array.from(set).sort().reverse();
+      }, [fiveDaysLogs]);
+
+      const filteredLogs = useMemo(() => {
+        if (!Array.isArray(fiveDaysLogs)) return [];
+        if (!selectedDate) return fiveDaysLogs;
+        return fiveDaysLogs.filter(i => i && typeof i.created_at === 'string' && i.created_at.startsWith(selectedDate));
+      }, [fiveDaysLogs, selectedDate]);
+
+      const handleDownloadFullCSV = async () => {
+        setDownloadingCSV(true);
+        try {
+          const res = await fetch(`/api/weather?station=${selectedStation.id}&mode=csv`);
+          const resData = await res.json();
+          const allRecords = resData.data || [];
+
+          if (!allRecords.length) return alert("No records available to export.");
+
+          const headers = ["Station", "Device Name", "MAC Address", "Parameter", "Class Code", "Value", "Unit", "Observed Timestamp"];
+          const rows = allRecords.map(item => [
+            `"${selectedStation.name}"`,
+            `"${cardData?.device?.name || ''}"`,
+            `"${cardData?.device?.mac || ''}"`,
+            `"${item?.name || item?.data_class || ''}"`,
+            `"${item?.class_num || ''}"`,
+            `"${item?.value ?? ''}"`,
+            `"${item?.unit === '?' ? '°C' : (item?.unit || '')}"`,
+            `"${formatTimestamp(item?.created_at)}"`
+          ]);
+
+          const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+          link.href = url;
+          link.download = `AWS_${selectedStation.id}_FULL_${fileTimestamp}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (err) {
+          alert("CSV export failed: " + err.message);
+        } finally {
+          setDownloadingCSV(false);
+        }
       };
 
       return (
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
           {/* Header */}
           <header className="pb-6 border-b border-slate-200 dark:border-slate-800">
-            {/* Top Institutional Banner with Right-Corner Logo */}
             <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm mb-4">
               <div className="flex items-center justify-between gap-4">
-                {/* Left: Titles */}
                 <div className="flex-grow text-left">
                   <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-tight">
                     ICAR - IIWM Bhubaneswar
@@ -202,30 +368,27 @@
                     Automated Weather Station(AWS) Dashboard
                   </h1>
                   <p className="hidden sm:block text-[11px] md:text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-0.5">
-                    Indian Institute of water Management
+                    Indian Institute of Water Management
                   </p>
                 </div>
-                {/* Right Corner: Fixed-Dimension Logo */}
-                {/* Right Corner: Clean Large Logo */}
                 <div className="flex-shrink-0 flex items-center justify-center">
-                <img 
-                  src="/icar.png"
-                  alt="ICAR Logo"
-                  className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 object-contain drop-shadow-md"
-                />  
-              </div>
+                  <img 
+                    src="/icar.png" 
+                    alt="ICAR Logo" 
+                    className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 object-contain drop-shadow-md"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Bottom Controls Bar */}
+            {/* Controls Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-              {/* Station Switcher */}
               <div className="inline-flex rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-1 shadow-sm">
                 {STATIONS.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => { if (selectedStation.id !== s.id) setSelectedStation(s); }}
-                    className={`px-3 py-1.5 sm:px-5 sm:py-2 text-xs font-bold rounded-lg transition ${
+                    onClick={() => handleStationSwitch(s)}
+                    className={`px-3 py-1.5 sm:px-5 sm:py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
                       selectedStation.id === s.id
                         ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -236,49 +399,33 @@
                 ))}
               </div>
 
-              {/* Date Filter, CSV Download, Theme Toggle, Refresh */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Date Dropdown */}
-                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
-                  <i data-lucide="calendar" className="w-4 h-4 text-emerald-500"></i>
-                  <select
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-                  >
-                    <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Latest Transmission</option>
-                    {availableDates.map(date => (
-                      <option key={date} value={date} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">{date}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* CSV Download */}
                 <button
-                  onClick={handleDownloadCSV}
-                  disabled={!filteredRows.length}
-                  title="Export Data to CSV"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-500 dark:hover:text-emerald-400 hover:border-emerald-500/40 transition shadow-sm disabled:opacity-40"
+                  onClick={handleDownloadFullCSV}
+                  disabled={downloadingCSV}
+                  title="Export Entire Historical Database to CSV"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition shadow-sm disabled:opacity-50 cursor-pointer"
                 >
-                  <i data-lucide="download" className="w-3.5 h-3.5 text-emerald-500"></i>
-                  <span>CSV</span>
+                  <i data-lucide={downloadingCSV ? "refresh-cw" : "download"} className={`w-3.5 h-3.5 text-emerald-500 ${downloadingCSV ? 'animate-spin' : ''}`}></i>
+                  <span>{downloadingCSV ? "Exporting..." : "CSV"}</span>
                 </button>
 
-                {/* Theme Switcher */}
                 <button
                   onClick={() => setDarkMode(!darkMode)}
                   title="Toggle Dark / Light Mode"
-                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition shadow-sm"
+                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition shadow-sm cursor-pointer"
                 >
                   <i data-lucide={darkMode ? "sun" : "moon"} className="w-4 h-4"></i>
                 </button>
 
-                {/* Refresh */}
                 <button
-                  onClick={() => fetchData(selectedStation)}
+                  onClick={() => {
+                    loadStationSnapshot(selectedStation.id, false);
+                    if (showTelemetry) fetchFiveDayLogs(selectedStation.id);
+                  }}
                   disabled={loading}
                   title="Refresh Data"
-                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition shadow-sm"
+                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition shadow-sm cursor-pointer"
                 >
                   <i data-lucide="refresh-cw" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
                 </button>
@@ -286,107 +433,371 @@
             </div>
           </header>
 
-          {error && (
-            <div className="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs sm:text-sm flex items-center gap-2.5">
-              <i data-lucide="alert-triangle" className="w-4 h-4 flex-shrink-0"></i>
-              <span>{error}</span>
+          {/* Diagnostics Alert Banner */}
+          <div className="mt-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div 
+              onClick={() => setShowDiag(!showDiag)}
+              className="px-3.5 py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition select-none"
+            >
+              <div className="flex items-center gap-2.5 text-xs font-semibold flex-wrap">
+                <span className={`w-2.5 h-2.5 rounded-full ${diagnostics.healthy ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`}></span>
+                <span className="text-slate-800 dark:text-slate-200">Hardware & Link Diagnostics:</span>
+                {diagnostics.healthy ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">All Subsystems Nominal</span>
+                ) : (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {diagnostics.isLowBattery && (
+                      <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
+                        Low Battery ({diagnostics.batteryMv} mV)
+                      </span>
+                    )}
+                    {diagnostics.isTelemetryOffline && (
+                      <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded text-[10px]">
+                        Signal Delayed (&gt;12h)
+                      </span>
+                    )}
+                    {diagnostics.droppedSensors.length > 0 && (
+                      <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
+                        {diagnostics.droppedSensors.length} Sensor Dropout(s)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <span className="text-slate-400 text-xs font-bold">{showDiag ? "▲" : "▼"}</span>
             </div>
-          )}
+
+            {showDiag && (
+              <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 text-xs bg-slate-50/50 dark:bg-slate-950/40">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 block">Telemetry Stream Status</span>
+                    <strong className={diagnostics.isTelemetryOffline ? "text-amber-500" : "text-emerald-500"}>
+                      {diagnostics.isTelemetryOffline ? "Signal Inactive" : "Active Link"}
+                    </strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 block">Battery Working Level</span>
+                    <strong className={diagnostics.isLowBattery ? "text-rose-500" : "text-emerald-500"}>
+                      {diagnostics.batteryMv ? `${(diagnostics.batteryMv / 1000).toFixed(2)} V` : "N/A"} {diagnostics.isLowBattery ? "(Under 11.8V)" : "(Healthy)"}
+                    </strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 block">Offline Sensor Inputs</span>
+                    <strong className={diagnostics.droppedSensors.length ? "text-rose-500" : "text-emerald-500"}>
+                      {diagnostics.droppedSensors.length ? diagnostics.droppedSensors.join(", ") : "None (All online)"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Telemetry Status Bar */}
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2 bg-white dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2 bg-white dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></span>
-                Station: <strong className="text-slate-800 dark:text-slate-200">{data?.device?.name || selectedStation.name}</strong>
+                Station: <strong className="text-slate-800 dark:text-slate-200">{cardData?.device?.name || selectedStation.name}</strong>
               </span>
-              {selectedDate && (
-                <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 text-[11px] font-medium">
-                  Date: {selectedDate}
-                </span>
-              )}
             </div>
             <div className="flex items-center justify-between sm:justify-end gap-3 text-[11px]">
-              <span>MAC: <code className="font-mono text-slate-700 dark:text-slate-300">{data?.device?.mac || "N/A"}</code></span>
+              <span>MAC: <code className="font-mono text-slate-700 dark:text-slate-300">{cardData?.device?.mac || "N/A"}</code></span>
               <span>Updated: <strong className="text-slate-800 dark:text-slate-200">{lastRefreshed || "--"}</strong></span>
             </div>
           </div>
 
           {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3.5 mt-5">
-            <MetricCard title="Temperature" value={latestMetrics["temperature"]?.value} unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} icon="thermometer" color="bg-amber-500" timestamp={latestMetrics["temperature"]?.created_at} isStale={checkStale(latestMetrics["temperature"]?.created_at)} />
-            <MetricCard title="Rainfall" value={latestMetrics["rainfall"]?.value} unit={latestMetrics["rainfall"]?.unit || "mm"} icon="cloud-rain" color="bg-blue-500" timestamp={latestMetrics["rainfall"]?.created_at} isStale={checkStale(latestMetrics["rainfall"]?.created_at)} />
-            <MetricCard title="Humidity" value={latestMetrics["humidity"]?.value} unit={latestMetrics["humidity"]?.unit || "%"} icon="droplets" color="bg-cyan-500" timestamp={latestMetrics["humidity"]?.created_at} isStale={checkStale(latestMetrics["humidity"]?.created_at)} />
-            <MetricCard title="Air Pressure" value={latestMetrics["air_pressure"]?.value} unit={latestMetrics["air_pressure"]?.unit || "Kpa"} icon="gauge" color="bg-purple-500" timestamp={latestMetrics["air_pressure"]?.created_at} isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} />
-            <MetricCard title="Wind Speed" value={latestMetrics["wind_velocity"]?.value} unit={latestMetrics["wind_velocity"]?.unit || "m/s"} icon="wind" color="bg-teal-500" timestamp={latestMetrics["wind_velocity"]?.created_at} isStale={checkStale(latestMetrics["wind_velocity"]?.created_at)} />
+            <MetricCard 
+              title="Temperature" 
+              value={latestMetrics["temperature"]?.value} 
+              unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} 
+              icon="thermometer" 
+              color="bg-amber-500" 
+              timestamp={latestMetrics["temperature"]?.created_at} 
+              isStale={checkStale(latestMetrics["temperature"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("temperature")} 
+            />
+            
+            <MetricCard 
+              title="Rainfall" 
+              value={latestMetrics["rainfall"]?.value} 
+              unit={latestMetrics["rainfall"]?.unit || "mm"} 
+              icon="cloud-rain" 
+              color="bg-blue-500" 
+              timestamp={latestMetrics["rainfall"]?.created_at} 
+              isStale={checkStale(latestMetrics["rainfall"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("rainfall")} 
+            />
+            
+            <MetricCard 
+              title="Humidity" 
+              value={latestMetrics["humidity"]?.value} 
+              unit={latestMetrics["humidity"]?.unit || "%"} 
+              icon="droplets" 
+              color="bg-cyan-500" 
+              timestamp={latestMetrics["humidity"]?.created_at} 
+              isStale={checkStale(latestMetrics["humidity"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("humidity")} 
+            />
+            
+            <MetricCard 
+              title="Air Pressure" 
+              value={latestMetrics["air_pressure"]?.value} 
+              unit={latestMetrics["air_pressure"]?.unit || "Kpa"} 
+              icon="gauge" 
+              color="bg-purple-500" 
+              timestamp={latestMetrics["air_pressure"]?.created_at} 
+              isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("air_pressure")} 
+            />
+            
+            <MetricCard 
+              title="Wind Speed" 
+              value={latestMetrics["wind_velocity"]?.value} 
+              unit={latestMetrics["wind_velocity"]?.unit || "m/s"} 
+              icon="wind" 
+              color="bg-teal-500" 
+              timestamp={latestMetrics["wind_velocity"]?.created_at} 
+              isStale={checkStale(latestMetrics["wind_velocity"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("wind_velocity")} 
+            />
             
             {latestMetrics["wind_direction"] && (
-              <MetricCard title="Wind Direction" value={latestMetrics["wind_direction"]?.value} unit="°" icon="compass" color="bg-sky-500" timestamp={latestMetrics["wind_direction"]?.created_at} isStale={checkStale(latestMetrics["wind_direction"]?.created_at)} />
+              <MetricCard 
+                title="Wind Direction" 
+                value={latestMetrics["wind_direction"]?.value} 
+                unit="°" 
+                icon="compass" 
+                color="bg-sky-500" 
+                timestamp={latestMetrics["wind_direction"]?.created_at} 
+                isStale={checkStale(latestMetrics["wind_direction"]?.created_at)} 
+              />
             )}
 
-            <MetricCard title="Solar Radiation" value={latestMetrics["solar_radiation"]?.value} unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} icon="sun" color="bg-yellow-500" timestamp={latestMetrics["solar_radiation"]?.created_at} isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} />
-            <MetricCard title="Sunshine Hours" value={latestMetrics["sunshine_hours"]?.value} unit={latestMetrics["sunshine_hours"]?.unit || "h"} icon="sun-medium" color="bg-orange-400" timestamp={latestMetrics["sunshine_hours"]?.created_at} isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} />
-            <MetricCard title="Soil Moisture" value={latestMetrics["soil_humidity"]?.value} unit={latestMetrics["soil_humidity"]?.unit || "%"} icon="sprout" color="bg-emerald-600" timestamp={latestMetrics["soil_humidity"]?.created_at} isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} />
-            <MetricCard title="Soil Temp" value={latestMetrics["soil_temperature"]?.value} unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} icon="thermometer" color="bg-lime-600" timestamp={latestMetrics["soil_temperature"]?.created_at} isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} />
-            <MetricCard title="CO2 Level" value={latestMetrics["co2"]?.value} unit={latestMetrics["co2"]?.unit || "PPM"} icon="cloud" color="bg-indigo-500" timestamp={latestMetrics["co2"]?.created_at} isStale={checkStale(latestMetrics["co2"]?.created_at)} />
-            <MetricCard title="Illumination" value={latestMetrics["illumination"]?.value} unit={latestMetrics["illumination"]?.unit || "LUX"} icon="lightbulb" color="bg-amber-400" timestamp={latestMetrics["illumination"]?.created_at} isStale={checkStale(latestMetrics["illumination"]?.created_at)} />
-            <MetricCard title="PM 2.5" value={latestMetrics["pm25"]?.value} unit={latestMetrics["pm25"]?.unit || "ug/m³"} icon="wind" color="bg-rose-400" timestamp={latestMetrics["pm25"]?.created_at} isStale={checkStale(latestMetrics["pm25"]?.created_at)} />
-            <MetricCard title="PM 10" value={latestMetrics["pm10"]?.value} unit={latestMetrics["pm10"]?.unit || "ug/m³"} icon="activity" color="bg-rose-500" timestamp={latestMetrics["pm10"]?.created_at} isStale={checkStale(latestMetrics["pm10"]?.created_at)} />
-            <MetricCard title="Battery" value={latestMetrics["battery_level"]?.value} unit={latestMetrics["battery_level"]?.unit || "mV"} icon="battery-charging" color="bg-green-500" timestamp={latestMetrics["battery_level"]?.created_at} isStale={checkStale(latestMetrics["battery_level"]?.created_at)} />
-            <MetricCard title="Solar Panel" value={latestMetrics["solar_panel_voltage"]?.value} unit={latestMetrics["solar_panel_voltage"]?.unit || "mV"} icon="zap" color="bg-amber-600" timestamp={latestMetrics["solar_panel_voltage"]?.created_at} isStale={checkStale(latestMetrics["solar_panel_voltage"]?.created_at)} />
+            <MetricCard 
+              title="Solar Radiation" 
+              value={latestMetrics["solar_radiation"]?.value} 
+              unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} 
+              icon="sun" 
+              color="bg-yellow-500" 
+              timestamp={latestMetrics["solar_radiation"]?.created_at} 
+              isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("solar_radiation")} 
+            />
+            
+            <MetricCard 
+              title="Sunshine Hours" 
+              value={latestMetrics["sunshine_hours"]?.value} 
+              unit={latestMetrics["sunshine_hours"]?.unit || "h"} 
+              icon="sun-medium" 
+              color="bg-orange-400" 
+              timestamp={latestMetrics["sunshine_hours"]?.created_at} 
+              isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("sunshine_hours")} 
+            />
+            
+            <MetricCard 
+              title="Soil Moisture" 
+              value={latestMetrics["soil_humidity"]?.value} 
+              unit={latestMetrics["soil_humidity"]?.unit || "%"} 
+              icon="sprout" 
+              color="bg-emerald-600" 
+              timestamp={latestMetrics["soil_humidity"]?.created_at} 
+              isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("soil_humidity")} 
+            />
+            
+            <MetricCard 
+              title="Soil Temp" 
+              value={latestMetrics["soil_temperature"]?.value} 
+              unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} 
+              icon="thermometer" 
+              color="bg-lime-600" 
+              timestamp={latestMetrics["soil_temperature"]?.created_at} 
+              isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("soil_temperature")} 
+            />
+            
+            <MetricCard 
+              title="CO2 Level" 
+              value={latestMetrics["co2"]?.value} 
+              unit={latestMetrics["co2"]?.unit || "PPM"} 
+              icon="cloud" 
+              color="bg-indigo-500" 
+              timestamp={latestMetrics["co2"]?.created_at} 
+              isStale={checkStale(latestMetrics["co2"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("co2")} 
+            />
+            
+            <MetricCard 
+              title="Illumination" 
+              value={latestMetrics["illumination"]?.value} 
+              unit={latestMetrics["illumination"]?.unit || "LUX"} 
+              icon="lightbulb" 
+              color="bg-amber-400" 
+              timestamp={latestMetrics["illumination"]?.created_at} 
+              isStale={checkStale(latestMetrics["illumination"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("illumination")} 
+            />
+            
+            {/* PM 2.5 with Indian CPCB Dynamic Badge */}
+            <MetricCard 
+              title="PM 2.5" 
+              value={latestMetrics["pm25"]?.value} 
+              unit={latestMetrics["pm25"]?.unit || "ug/m³"} 
+              icon="wind" 
+              color="bg-rose-400" 
+              timestamp={latestMetrics["pm25"]?.created_at} 
+              isStale={checkStale(latestMetrics["pm25"]?.created_at)}
+              badge={getAqiBadge("pm25", latestMetrics["pm25"]?.value)}
+              isDropped={diagnostics.droppedSensors.includes("pm25")}
+            />
+            
+            {/* PM 10 with Indian CPCB Dynamic Badge */}
+            <MetricCard 
+              title="PM 10" 
+              value={latestMetrics["pm10"]?.value} 
+              unit={latestMetrics["pm10"]?.unit || "ug/m³"} 
+              icon="activity" 
+              color="bg-rose-500" 
+              timestamp={latestMetrics["pm10"]?.created_at} 
+              isStale={checkStale(latestMetrics["pm10"]?.created_at)}
+              badge={getAqiBadge("pm10", latestMetrics["pm10"]?.value)}
+              isDropped={diagnostics.droppedSensors.includes("pm10")}
+            />
+            
+            {/* Battery Level with Low Battery Alert */}
+            <MetricCard 
+              title="Battery" 
+              value={latestMetrics["battery_level"]?.value} 
+              unit={latestMetrics["battery_level"]?.unit || "mV"} 
+              icon="battery-charging" 
+              color={diagnostics.isLowBattery ? "bg-rose-500" : "bg-green-500"} 
+              timestamp={latestMetrics["battery_level"]?.created_at} 
+              isStale={checkStale(latestMetrics["battery_level"]?.created_at)} 
+              badge={diagnostics.isLowBattery ? { label: "Low", bg: "bg-rose-500/10 text-rose-500 border-rose-500/20" } : null}
+              isDropped={diagnostics.droppedSensors.includes("battery_level")}
+            />
+            
+            <MetricCard 
+              title="Solar Panel" 
+              value={latestMetrics["solar_panel_voltage"]?.value} 
+              unit={latestMetrics["solar_panel_voltage"]?.unit || "mV"} 
+              icon="zap" 
+              color="bg-amber-600" 
+              timestamp={latestMetrics["solar_panel_voltage"]?.created_at} 
+              isStale={checkStale(latestMetrics["solar_panel_voltage"]?.created_at)} 
+              isDropped={diagnostics.droppedSensors.includes("solar_panel_voltage")} 
+            />
           </div>
 
-          {/* Telemetry Table */}
-          <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
-              <div>
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <i data-lucide="layers" className="w-4 h-4 text-emerald-500"></i>
-                  Live Telemetry Feeds
-                </h2>
-                <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  Showing latest {displayedRows.length} of {filteredRows.length} records in view
-                </p>
+          {/* Telemetry Tab: Last 5 Days */}
+          <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div 
+              onClick={() => {
+                const next = !showTelemetry;
+                setShowTelemetry(next);
+                if (next && fiveDaysLogs.length === 0) fetchFiveDayLogs(selectedStation.id);
+              }}
+              className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition text-left cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="layers" className="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Live Telemetry Feeds (Last 5 Days)
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      {fiveDaysLogs.length > 0 ? `${fiveDaysLogs.length} records` : "Click to view logs"}
+                    </span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    {showTelemetry ? "Click to collapse telemetry table" : "Expand to view and filter recent 5 days transmissions"}
+                  </p>
+                </div>
               </div>
-              {selectedDate && (
-                <button onClick={() => setSelectedDate("")} className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline text-left">
-                  Clear date filter
-                </button>
-              )}
+              <span className="text-slate-400 text-xs font-bold">{showTelemetry ? "▲" : "▼"}</span>
             </div>
 
-            <div className="overflow-x-auto max-h-[450px]">
-              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300 relative whitespace-nowrap">
-                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    <th className="py-2.5 px-3.5">Parameter</th>
-                    <th className="py-2.5 px-3.5">Class Code</th>
-                    <th className="py-2.5 px-3.5">Value</th>
-                    <th className="py-2.5 px-3.5">Unit</th>
-                    <th className="py-2.5 px-3.5">Observed Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                  {displayedRows.length > 0 ? (
-                    displayedRows.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                        <td className="py-2 px-3.5 font-semibold text-slate-800 dark:text-slate-100 capitalize">{item.name || item.data_class}</td>
-                        <td className="py-2 px-3.5 font-mono text-slate-400">{item.class_num || "--"}</td>
-                        <td className="py-2 px-3.5 font-bold text-emerald-600 dark:text-emerald-400">{item.value}</td>
-                        <td className="py-2 px-3.5">{item.unit === "?" ? "°C" : (item.unit || "--")}</td>
-                        <td className="py-2 px-3.5 text-slate-400">{item.created_at}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center text-slate-400 dark:text-slate-500">
-                        {loading ? "Streaming telemetry records..." : "No readings found for selected filter."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {showTelemetry && (
+              <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
+                  <div>
+                    <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
+                      Showing {filteredLogs.length} records across the last 5 days
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                      <select
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                      >
+                        <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Last 5 Days (All)</option>
+                        {availableDates.map(date => {
+                          const [y, m, d] = date.split("-");
+                          const displayDate = (y && m && d) ? `${d}-${m}-${y}` : date;
+                          return (
+                            <option key={date} value={date} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                              {displayDate}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    {selectedDate && (
+                      <button onClick={() => setSelectedDate("")} className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {loadingLogs ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500">
+                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-medium">Filtering records...</span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[450px]">
+                    <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300 relative whitespace-nowrap">
+                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
+                        <tr>
+                          <th className="py-2.5 px-3.5">Parameter</th>
+                          <th className="py-2.5 px-3.5">Class Code</th>
+                          <th className="py-2.5 px-3.5">Value</th>
+                          <th className="py-2.5 px-3.5">Unit</th>
+                          <th className="py-2.5 px-3.5">Observed Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                        {filteredLogs.length > 0 ? (
+                          filteredLogs.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                              <td className="py-2 px-3.5 font-semibold text-slate-800 dark:text-slate-100 capitalize">{item?.name || item?.data_class || "Sensor"}</td>
+                              <td className="py-2 px-3.5 font-mono text-slate-400">{item?.class_num || "--"}</td>
+                              <td className="py-2 px-3.5 font-bold text-emerald-600 dark:text-emerald-400">{item?.value ?? "--"}</td>
+                              <td className="py-2 px-3.5">{item?.unit === "?" ? "°C" : (item?.unit || "--")}</td>
+                              <td className="py-2 px-3.5 text-slate-400 font-mono">{formatTimestamp(item?.created_at)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="py-8 text-center text-slate-400 dark:text-slate-500">
+                              No records found for the selected date.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       );

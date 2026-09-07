@@ -1,0 +1,21 @@
+{
+  "name": "ICAR-IIWM AWS Telemetry Dashboard",
+  "short_name": "IIWM Weather",
+  "description": "Real-time automated weather station telemetry and diagnostics for ICAR-IIWM Bhubaneswar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icar.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icar.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
