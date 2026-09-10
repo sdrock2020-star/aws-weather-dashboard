@@ -75,7 +75,7 @@
           { name: "Rainfall", unit: "mm" },
           { name: "Barometric Air Pressure", unit: "Kpa" },
           { name: "Wind Speed", unit: "m/s" },
-          { name: "Wind Direction", unit: "°", special: true },
+          { name: "Wind Direction", unit: "°"},
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
           { name: "Soil Moisture", unit: "%" },
@@ -1011,7 +1011,7 @@
 
                 {/* Footer */}
                 <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>★ <em>Wind Direction is exclusively measured at Campus.</em></span>
+                  
                   <button
                     onClick={() => setShowParamModal(false)}
                     className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
