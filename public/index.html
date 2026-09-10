@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
   
-  <!-- Preload CDN Origins for Faster Execution -->
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://cdn.tailwindcss.com">
   <link rel="dns-prefetch" href="https://unpkg.com">
 
-  <!-- PWA & Mobile Web App Meta -->
   <link rel="manifest" href="/manifest.json"/>
   <meta name="theme-color" content="#10b981"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -35,7 +33,7 @@
     const { useState, useEffect, useMemo } = React;
 
     const STATIONS = [
-      { id: "farm", name: "IIWM FARM Mendhasal" },
+      { id: "farm", name: "IIWM Mendhasal" },
       { id: "main", name: "IIWM Campus" }
     ];
 
@@ -52,7 +50,7 @@
           { name: "Air Temperature", unit: "°C" },
           { name: "Relative Humidity", unit: "%" },
           { name: "Rainfall", unit: "mm" },
-          { name: "Barometric Air Pressure", unit: "Kpa" },
+          { name: "Air Pressure", unit: "Kpa" },
           { name: "Wind Speed", unit: "m/s" },
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
@@ -73,9 +71,9 @@
           { name: "Air Temperature", unit: "°C" },
           { name: "Relative Humidity", unit: "%" },
           { name: "Rainfall", unit: "mm" },
-          { name: "Barometric Air Pressure", unit: "Kpa" },
+          { name: "Air Pressure", unit: "Kpa" },
           { name: "Wind Speed", unit: "m/s" },
-          { name: "Wind Direction", unit: "°"},
+          { name: "Wind Direction", unit: "°", special: true },
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
           { name: "Soil Moisture", unit: "%" },
@@ -90,7 +88,6 @@
       }
     };
 
-    // Formats "2026-06-03 04:59:49" -> "03-06-2026 04:59:49"
     function formatTimestamp(str) {
       if (!str || typeof str !== "string") return "--";
       const parts = str.trim().split(/[\sT]+/);
@@ -105,7 +102,6 @@
       return str;
     }
 
-    // Safe CPCB NAQI Color & Badge Mapper
     function getAqiBadge(type, rawVal) {
       if (rawVal === undefined || rawVal === null) return null;
       const val = parseFloat(rawVal);
@@ -177,10 +173,28 @@
       );
     }
 
+    const TELEMETRY_COLUMNS = [
+      { key: "temperature", label: "Air Temperature", unit: "°C" },
+      { key: "humidity", label: "Relative Humidity", unit: "%" },
+      { key: "rainfall", label: "Rainfall", unit: "mm" },
+      { key: "air_pressure", label: "Air Pressure", unit: "Kpa" },
+      { key: "wind_velocity", label: "Wind Speed", unit: "m/s" },
+      { key: "wind_direction", label: "Wind Direction", unit: "°", campusOnly: true },
+      { key: "solar_radiation", label: "Solar Radiation", unit: "w/m²" },
+      { key: "sunshine_hours", label: "Sunshine Hours", unit: "h" },
+      { key: "soil_humidity", label: "Soil Moisture", unit: "%" },
+      { key: "soil_temperature", label: "Soil Temp", unit: "°C" },
+      { key: "co2", label: "CO2 Level", unit: "PPM" },
+      { key: "illumination", label: "Illumination / Lux", unit: "LUX" },
+      { key: "pm25", label: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+      { key: "pm10", label: "Particulate Matter (PM 10)", unit: "ug/m³" },
+      { key: "battery_level", label: "Battery Working Level", unit: "mV" },
+      { key: "solar_panel_voltage", label: "Solar Panel Voltage", unit: "mV" }
+    ];
+
     function App() {
       const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
       
-      // 0ms instant render from localStorage
       const [cardData, setCardData] = useState(() => {
         try {
           const cached = localStorage.getItem(`aws_cache_${STATIONS[0].id}`);
@@ -194,7 +208,6 @@
       const [error, setError] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState(null);
 
-      // Diagnostics, Telemetry & Modal UI states
       const [showDiag, setShowDiag] = useState(false);
       const [showParamModal, setShowParamModal] = useState(false);
       const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -204,7 +217,6 @@
       const [selectedDate, setSelectedDate] = useState("");
       const [downloadingCSV, setDownloadingCSV] = useState(false);
 
-      // Feedback form states
       const [feedbackName, setFeedbackName] = useState("");
       const [feedbackDesignation, setFeedbackDesignation] = useState("");
       const [feedbackStation, setFeedbackStation] = useState("Both / General");
@@ -226,7 +238,6 @@
       }, [darkMode]);
 
       const loadStationSnapshot = async (stationId, isBackground = false) => {
-        // 1. Instant render from memory or localStorage
         if (clientStationCache[stationId]) {
           setCardData(clientStationCache[stationId]);
         } else {
@@ -240,7 +251,6 @@
           } catch (e) {}
         }
 
-        // 2. Fetch fresh data from API
         try {
           const res = await fetch(`/api/weather?station=${stationId}&mode=latest`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -300,7 +310,6 @@
         setSelectedStation(station);
       };
 
-      // Lucide icon refresh
       useEffect(() => {
         const t = setTimeout(() => {
           try {
@@ -390,6 +399,37 @@
         return fiveDaysLogs.filter(i => i && typeof i.created_at === 'string' && i.created_at.startsWith(selectedDate));
       }, [fiveDaysLogs, selectedDate]);
 
+      const pivotedTelemetryRows = useMemo(() => {
+        if (!Array.isArray(filteredLogs) || !filteredLogs.length) return [];
+        
+        const rowMap = new Map();
+
+        for (let i = 0; i < filteredLogs.length; i++) {
+          const item = filteredLogs[i];
+          if (!item || !item.created_at) continue;
+
+          const timeKey = item.created_at;
+          if (!rowMap.has(timeKey)) {
+            rowMap.set(timeKey, { timestamp: timeKey });
+          }
+
+          const row = rowMap.get(timeKey);
+          const metricKey = String(item.data_class || item.name || "").toLowerCase().trim();
+          row[metricKey] = item.value;
+        }
+
+        return Array.from(rowMap.values()).sort(
+          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+        );
+      }, [filteredLogs]);
+
+      const activeColumns = useMemo(() => {
+        return TELEMETRY_COLUMNS.filter(col => {
+          if (col.campusOnly && selectedStation.id !== "main") return false;
+          return true;
+        });
+      }, [selectedStation.id]);
+
       const handleDownloadFullCSV = async () => {
         setDownloadingCSV(true);
         try {
@@ -398,35 +438,70 @@
           const allRecords = resData.data || [];
           if (!allRecords.length) return alert("No records available to export.");
 
-          const headers = ["Station", "Device Name", "MAC Address", "Parameter", "Class Code", "Value", "Unit", "Observed Timestamp"];
-          const rows = allRecords.map(item => [
-            `"${selectedStation.name}"`,
-            `"${cardData?.device?.name || ''}"`,
-            `"${cardData?.device?.mac || ''}"`,
-            `"${item?.name || item?.data_class || ''}"`,
-            `"${item?.class_num || ''}"`,
-            `"${item?.value ?? ''}"`,
-            `"${item?.unit === '?' ? '°C' : (item?.unit || '')}"`,
-            `"${formatTimestamp(item?.created_at)}"`
-          ]);
+          // 1. Determine active columns for this station (excludes Wind Direction on Mendhasal)
+          const colsToExport = TELEMETRY_COLUMNS.filter(col => {
+            if (col.campusOnly && selectedStation.id !== "main") return false;
+            return true;
+          });
 
-          const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+          // 2. Group / Pivot records by timestamp into a spreadsheet matrix
+          const rowMap = new Map();
+          for (let i = 0; i < allRecords.length; i++) {
+            const item = allRecords[i];
+            if (!item || !item.created_at) continue;
+
+            const timeKey = item.created_at;
+            if (!rowMap.has(timeKey)) {
+              rowMap.set(timeKey, { timestamp: timeKey });
+            }
+
+            const row = rowMap.get(timeKey);
+            const metricKey = String(item.data_class || item.name || "").toLowerCase().trim();
+            row[metricKey] = item.value;
+          }
+
+          // 3. Sort chronologically from newest to oldest
+          const sortedRows = Array.from(rowMap.values()).sort(
+            (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+          );
+
+          // 4. Build CSV Headers with Units: e.g. "Air Temperature (°C)"
+          const headers = [
+            "Station",
+            "Observed Date & Time",
+            ...colsToExport.map(c => `"${c.label} (${c.unit})"`)
+          ];
+
+          // 5. Build CSV Rows with pure values
+          const rows = sortedRows.map(row => {
+            const rowValues = [
+              `"${selectedStation.name}"`,
+              `"${formatTimestamp(row.timestamp)}"`,
+              ...colsToExport.map(c => {
+                const val = row[c.key];
+                return val !== undefined && val !== null && val !== "" ? `"${val}"` : '""';
+              })
+            ];
+            return rowValues.join(",");
+          });
+
+          // 6. Generate and trigger download
+          const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n"); // \uFEFF ensures proper UTF-8 decoding in Excel
           const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
           link.href = url;
-          link.download = `AWS_${selectedStation.id}_FULL_${fileTimestamp}.csv`;
+          link.download = `AWS_${selectedStation.id}_MATRIX_${fileTimestamp}.csv`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
         } catch (err) {
           alert("CSV export failed: " + err.message);
-        } finally {
+        } finally { 
           setDownloadingCSV(false);
         }
       };
-
       const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -513,7 +588,6 @@
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* Total Parameters Button */}
                 <button
                   onClick={() => setShowParamModal(true)}
                   title="View Monitored Parameters for Both Stations"
@@ -523,7 +597,6 @@
                   <span>Total Parameters</span>
                 </button>
 
-                {/* Report Issue / Feedback Button */}
                 <button
                   onClick={() => {
                     setFeedbackStation(selectedStation.name);
@@ -778,7 +851,6 @@
               isDropped={diagnostics.droppedSensors.includes("illumination")} 
             />
             
-            {/* PM 2.5 with Indian CPCB Dynamic Badge */}
             <MetricCard 
               title="PM 2.5"
               value={latestMetrics["pm25"]?.value} 
@@ -791,7 +863,6 @@
               isDropped={diagnostics.droppedSensors.includes("pm25")} 
             />
             
-            {/* PM 10 with Indian CPCB Dynamic Badge */}
             <MetricCard 
               title="PM 10"
               value={latestMetrics["pm10"]?.value} 
@@ -804,7 +875,6 @@
               isDropped={diagnostics.droppedSensors.includes("pm10")} 
             />
             
-            {/* Battery Level with Low Battery Alert */}
             <MetricCard 
               title="Battery"
               value={latestMetrics["battery_level"]?.value} 
@@ -829,7 +899,7 @@
             />
           </div>
 
-          {/* Telemetry Tab: Last 5 Days */}
+          {/* Telemetry Tab: Last 5 Days Matrix */}
           <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
             <div 
               onClick={() => {
@@ -847,11 +917,11 @@
                   <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     Live Telemetry Feeds (Last 5 Days)
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      {fiveDaysLogs.length > 0 ? `${fiveDaysLogs.length} records` : "Click to view logs"}
+                      {pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs"}
                     </span>
                   </h2>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    {showTelemetry ? "Click to collapse telemetry table" : "Expand to view and filter recent 5 days transmissions"}
+                    {showTelemetry ? "Click to collapse telemetry table" : "Expand to view matrix breakdown across all monitored metrics"}
                   </p>
                 </div>
               </div>
@@ -863,7 +933,7 @@
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
                   <div>
                     <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
-                      Showing {filteredLogs.length} records across the last 5 days
+                      Showing {pivotedTelemetryRows.length} transmissions across the last 5 days
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -899,32 +969,56 @@
                     <span className="text-xs font-medium">Filtering records...</span>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto max-h-[450px]">
-                    <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300 relative whitespace-nowrap">
-                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
-                        <tr>
-                          <th className="py-2.5 px-3.5">Parameter</th>
-                          <th className="py-2.5 px-3.5">Class Code</th>
-                          <th className="py-2.5 px-3.5">Value</th>
-                          <th className="py-2.5 px-3.5">Unit</th>
-                          <th className="py-2.5 px-3.5">Observed Timestamp</th>
+                  <div className="overflow-x-auto max-h-[500px] border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 relative whitespace-nowrap border-collapse">
+                      <thead className="bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-sm backdrop-blur-sm">
+                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                          <th className="py-3 px-4 font-bold sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 border-r border-slate-200 dark:border-slate-700 min-w-[160px]">
+                            <div>Observed Date & Time</div>
+                            <span className="text-[10px] lowercase text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                          </th>
+
+                          {activeColumns.map(col => (
+                            <th key={col.key} className="py-2.5 px-3 font-semibold text-center min-w-[120px] border-r border-slate-200/60 dark:border-slate-700/60">
+                              <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                                {col.label}
+                              </div>
+                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium lowercase">
+                                ({col.unit})
+                              </span>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                        {filteredLogs.length > 0 ? (
-                          filteredLogs.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                              <td className="py-2 px-3.5 font-semibold text-slate-800 dark:text-slate-100 capitalize">{item?.name || item?.data_class || "Sensor"}</td>
-                              <td className="py-2 px-3.5 font-mono text-slate-400">{item?.class_num || "--"}</td>
-                              <td className="py-2 px-3.5 font-bold text-emerald-600 dark:text-emerald-400">{item?.value ?? "--"}</td>
-                              <td className="py-2 px-3.5">{item?.unit === "?" ? "°C" : (item?.unit || "--")}</td>
-                              <td className="py-2 px-3.5 text-slate-400 font-mono">{formatTimestamp(item?.created_at)}</td>
+
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
+                        {pivotedTelemetryRows.length > 0 ? (
+                          pivotedTelemetryRows.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                              <td className="py-2 px-4 font-semibold text-slate-900 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+                                {formatTimestamp(row.timestamp)}
+                              </td>
+
+                              {activeColumns.map(col => {
+                                const val = row[col.key];
+                                return (
+                                  <td key={col.key} className="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/50">
+                                    {val !== undefined && val !== null && val !== "" ? (
+                                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                                        {val}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-300 dark:text-slate-600">--</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="5" className="py-8 text-center text-slate-400 dark:text-slate-500">
-                              No records found for the selected date.
+                            <td colSpan={activeColumns.length + 1} className="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
+                              No records found for the selected timeframe.
                             </td>
                           </tr>
                         )}
@@ -940,8 +1034,6 @@
           {showParamModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[85vh]">
-                
-                {/* Modal Header */}
                 <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -964,9 +1056,7 @@
                   </button>
                 </div>
 
-                {/* Body / Two Stations */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-y-auto pr-1 text-xs">
-                  {/* Mendhasal */}
                   <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs uppercase tracking-wider">
@@ -986,7 +1076,6 @@
                     </ul>
                   </div>
 
-                  {/* Campus */}
                   <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
                       <span className="font-bold text-sky-600 dark:text-sky-400 text-xs uppercase tracking-wider">
@@ -1009,9 +1098,8 @@
                   </div>
                 </div>
 
-                {/* Footer */}
                 <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                  
+                  <span>★ <em>Wind Direction is exclusively measured at Campus.</em></span>
                   <button
                     onClick={() => setShowParamModal(false)}
                     className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
@@ -1027,8 +1115,6 @@
           {showFeedbackModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[90vh]">
-                
-                {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
@@ -1051,10 +1137,7 @@
                   </button>
                 </div>
 
-                {/* Form Body */}
                 <form onSubmit={handleSendFeedbackEmail} className="mt-4 overflow-y-auto space-y-3.5 pr-1 text-xs">
-                  
-                  {/* Name & Designation */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
@@ -1082,7 +1165,6 @@
                     </div>
                   </div>
 
-                  {/* Station & Parameter Selection */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
@@ -1112,7 +1194,6 @@
                     </div>
                   </div>
 
-                  {/* Issue Description */}
                   <div>
                     <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                       Description of Issue / Feedback <span className="text-rose-500">*</span>
@@ -1127,7 +1208,6 @@
                     ></textarea>
                   </div>
 
-                  {/* Photo / Screenshot Attachment (Optional) */}
                   <div>
                     <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                       Upload Screenshot / Photo (Optional)
@@ -1166,7 +1246,6 @@
                     )}
                   </div>
 
-                  {/* Submit / Action Buttons */}
                   <div className="pt-2 flex items-center justify-end gap-2">
                     <button
                       type="button"
@@ -1183,7 +1262,6 @@
                       <span>Submit & Send Email</span>
                     </button>
                   </div>
-
                 </form>
               </div>
             </div>
