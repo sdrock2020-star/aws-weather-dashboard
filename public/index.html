@@ -47,14 +47,14 @@
         name: "IIWM Mendhasal",
         count: 15,
         params: [
-          { name: "Air Temperature", unit: "°C" },
-          { name: "Relative Humidity", unit: "%" },
+          { name: "Temperature", unit: "°C" },
+          { name: "Humidity", unit: "%" },
           { name: "Rainfall", unit: "mm" },
           { name: "Air Pressure", unit: "Kpa" },
-          { name: "Wind Speed", unit: "m/s" },
+          { name: "Wind Velocity", unit: "m/s" },
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
-          { name: "Soil Moisture", unit: "%" },
+          { name: "Soil Humidity", unit: "%" },
           { name: "Soil Temperature", unit: "°C" },
           { name: "CO2 Level", unit: "PPM" },
           { name: "Illumination / Lux", unit: "LUX" },
@@ -68,15 +68,15 @@
         name: "IIWM Campus",
         count: 16,
         params: [
-          { name: "Air Temperature", unit: "°C" },
-          { name: "Relative Humidity", unit: "%" },
+          { name: "Temperature", unit: "°C" },
+          { name: "Humidity", unit: "%" },
           { name: "Rainfall", unit: "mm" },
           { name: "Air Pressure", unit: "Kpa" },
-          { name: "Wind Speed", unit: "m/s" },
+          { name: "Wind Velocity", unit: "m/s" },
           { name: "Wind Direction", unit: "°", special: true },
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
-          { name: "Soil Moisture", unit: "%" },
+          { name: "Soil Humidity", unit: "%" },
           { name: "Soil Temperature", unit: "°C" },
           { name: "CO2 Level", unit: "PPM" },
           { name: "Illumination / Lux", unit: "LUX" },
@@ -174,15 +174,15 @@
     }
 
     const TELEMETRY_COLUMNS = [
-      { key: "temperature", label: "Air Temperature", unit: "°C" },
-      { key: "humidity", label: "Relative Humidity", unit: "%" },
+      { key: "temperature", label: "Temperature", unit: "°C" },
+      { key: "humidity", label: "Humidity", unit: "%" },
       { key: "rainfall", label: "Rainfall", unit: "mm" },
       { key: "air_pressure", label: "Air Pressure", unit: "Kpa" },
-      { key: "wind_velocity", label: "Wind Speed", unit: "m/s" },
+      { key: "wind_velocity", label: "Wind Velocity", unit: "m/s" },
       { key: "wind_direction", label: "Wind Direction", unit: "°", campusOnly: true },
       { key: "solar_radiation", label: "Solar Radiation", unit: "w/m²" },
       { key: "sunshine_hours", label: "Sunshine Hours", unit: "h" },
-      { key: "soil_humidity", label: "Soil Moisture", unit: "%" },
+      { key: "soil_humidity", label: "Soil Humidity", unit: "%" },
       { key: "soil_temperature", label: "Soil Temp", unit: "°C" },
       { key: "co2", label: "CO2 Level", unit: "PPM" },
       { key: "illumination", label: "Illumination / Lux", unit: "LUX" },
@@ -194,6 +194,8 @@
 
     function App() {
       const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
+      const [selectedDate, setSelectedDate] = useState("");
+      const [selectedParam, setSelectedParam] = useState("all");
       
       const [cardData, setCardData] = useState(() => {
         try {
@@ -214,7 +216,6 @@
       const [showTelemetry, setShowTelemetry] = useState(false);
       const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
       const [loadingLogs, setLoadingLogs] = useState(false);
-      const [selectedDate, setSelectedDate] = useState("");
       const [downloadingCSV, setDownloadingCSV] = useState(false);
 
       const [feedbackName, setFeedbackName] = useState("");
@@ -290,6 +291,7 @@
         loadStationSnapshot(selectedStation.id, false);
         setFiveDaysLogs([]);
         setSelectedDate("");
+        setSelectedParam("all");
         if (showTelemetry) {
           fetchFiveDayLogs(selectedStation.id);
         }
@@ -321,7 +323,7 @@
           }
         }, 50);
         return () => clearTimeout(t);
-      }, [cardData, loading, showTelemetry, showDiag, showParamModal, showFeedbackModal, darkMode, feedbackImagePreview]);
+      }, [cardData, loading, showTelemetry, showDiag, showParamModal, showFeedbackModal, darkMode, feedbackImagePreview, selectedParam]);
 
       const latestMetrics = useMemo(() => {
         if (!cardData || !Array.isArray(cardData.data)) return {};
@@ -423,12 +425,14 @@
         );
       }, [filteredLogs]);
 
+      // Filters columns by station and the selected parameter
       const activeColumns = useMemo(() => {
         return TELEMETRY_COLUMNS.filter(col => {
           if (col.campusOnly && selectedStation.id !== "main") return false;
+          if (selectedParam !== "all" && col.key !== selectedParam) return false;
           return true;
         });
-      }, [selectedStation.id]);
+      }, [selectedStation.id, selectedParam]);
 
       const handleDownloadFullCSV = async () => {
         setDownloadingCSV(true);
@@ -438,13 +442,11 @@
           const allRecords = resData.data || [];
           if (!allRecords.length) return alert("No records available to export.");
 
-          // 1. Determine active columns for this station (excludes Wind Direction on Mendhasal)
           const colsToExport = TELEMETRY_COLUMNS.filter(col => {
             if (col.campusOnly && selectedStation.id !== "main") return false;
             return true;
           });
 
-          // 2. Group / Pivot records by timestamp into a spreadsheet matrix
           const rowMap = new Map();
           for (let i = 0; i < allRecords.length; i++) {
             const item = allRecords[i];
@@ -460,19 +462,16 @@
             row[metricKey] = item.value;
           }
 
-          // 3. Sort chronologically from newest to oldest
           const sortedRows = Array.from(rowMap.values()).sort(
             (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
           );
 
-          // 4. Build CSV Headers with Units: e.g. "Air Temperature (°C)"
           const headers = [
             "Station",
             "Observed Date & Time",
             ...colsToExport.map(c => `"${c.label} (${c.unit})"`)
           ];
 
-          // 5. Build CSV Rows with pure values
           const rows = sortedRows.map(row => {
             const rowValues = [
               `"${selectedStation.name}"`,
@@ -485,8 +484,7 @@
             return rowValues.join(",");
           });
 
-          // 6. Generate and trigger download
-          const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n"); // \uFEFF ensures proper UTF-8 decoding in Excel
+          const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
           const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
@@ -502,6 +500,7 @@
           setDownloadingCSV(false);
         }
       };
+
       const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -763,7 +762,7 @@
             />
             
             <MetricCard 
-              title="Wind Speed"
+              title="Wind Velocity"
               value={latestMetrics["wind_velocity"]?.value} 
               unit={latestMetrics["wind_velocity"]?.unit || "m/s"} 
               icon="wind"
@@ -808,7 +807,7 @@
             />
             
             <MetricCard 
-              title="Soil Moisture"
+              title="Soil Humidity"
               value={latestMetrics["soil_humidity"]?.value} 
               unit={latestMetrics["soil_humidity"]?.unit || "%"} 
               icon="sprout"
@@ -936,7 +935,39 @@
                       Showing {pivotedTelemetryRows.length} transmissions across the last 5 days
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  {/* Filter Group: Parameter Filter + Date Filter */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Parameter Selector Dropdown */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                      <i data-lucide="sliders-horizontal" className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0"></i>
+                      <select
+                        value={selectedParam}
+                        onChange={(e) => setSelectedParam(e.target.value)}
+                        className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                      >
+                        <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          All Parameters ({selectedStation.id === "main" ? "16" : "15"})
+                        </option>
+                        {TELEMETRY_COLUMNS.filter(c => !(c.campusOnly && selectedStation.id !== "main")).map(col => (
+                          <option key={col.key} value={col.key} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                            {col.label} ({col.unit})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedParam !== "all" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedParam("all")}
+                          title="Show All Parameters"
+                          className="text-slate-400 hover:text-rose-500 text-xs px-0.5 font-bold cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Date Selector Dropdown */}
                     <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
                       <select 
                         value={selectedDate} 
@@ -954,12 +985,17 @@
                           );
                         })}
                       </select>
+                      {selectedDate && (
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedDate("")} 
+                          title="Clear Date Filter" 
+                          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
-                    {selectedDate && (
-                      <button onClick={() => setSelectedDate("")} className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
-                        Clear
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1099,7 +1135,6 @@
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                  
                   <button
                     onClick={() => setShowParamModal(false)}
                     className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
@@ -1188,7 +1223,7 @@
                         type="text" 
                         value={feedbackParam}
                         onChange={(e) => setFeedbackParam(e.target.value)}
-                        placeholder="e.g., Soil Moisture, Battery, PM 2.5"
+                        placeholder="e.g., Soil Humidity, Battery, PM 2.5"
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
                       />
                     </div>
