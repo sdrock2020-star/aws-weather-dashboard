@@ -3,8 +3,7 @@ const globalCache = {
   farm: { data: null, lastFetched: 0 },
   main: { data: null, lastFetched: 0 }
 };
-
-const CACHE_TTL_MS = 2 * 60 * 1000; // Cache upstream data for 2 minutes
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes upstream cache
 
 export default async function handler(req, res) {
   const { station = 'farm', mode = 'latest' } = req.query;
@@ -24,8 +23,12 @@ export default async function handler(req, res) {
   const now = Date.now();
   const stationCache = globalCache[station] || { data: null, lastFetched: 0 };
 
-  // CDN & Browser Cache Header: Instant delivery with background refresh
-  res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=60');
+  // CDN & Browser Cache Header: dynamic max-age depending on mode
+  if (mode === 'latest') {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+  } else {
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+  }
 
   let rawPayload = stationCache.data;
 
@@ -33,7 +36,7 @@ export default async function handler(req, res) {
   if (!rawPayload || (now - stationCache.lastFetched) > CACHE_TTL_MS) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 9000);
 
       const response = await fetch(selectedConfig.endpoint, {
         method: "GET",
@@ -58,7 +61,6 @@ export default async function handler(req, res) {
         });
       }
     } catch (error) {
-      // If fetch fails but we have stale cache, serve stale cache instead of failing
       if (!rawPayload) {
         const isAbort = error.name === 'AbortError';
         return res.status(isAbort ? 504 : 500).json({
@@ -74,65 +76,80 @@ export default async function handler(req, res) {
   }
 
   const allRecords = rawPayload.data;
+  const totalLen = allRecords.length;
 
-  // MODE 1: 'latest' -> Metric cards only (< 3 KB payload, loads instantly)
+  // -------------------------------------------------------------
+  // MODE 1: 'latest' -> Metric cards only (< 2 KB payload, instant)
+  // Scans from newest records first and breaks early once all params found
+  // -------------------------------------------------------------
   if (mode === 'latest') {
     const latestMap = {};
-    for (let i = allRecords.length - 1; i >= 0; i--) {
+    for (let i = 0; i < totalLen; i++) {
       const item = allRecords[i];
       if (!item) continue;
       const key = String(item.data_class || item.name || "").toLowerCase().trim();
-      if (!latestMap[key] || new Date(item.created_at) > new Date(latestMap[key].created_at)) {
+      if (!latestMap[key]) {
         latestMap[key] = item;
       }
+      // Mendhasal has 15, Campus has 16. If we have found 16, exit early!
+      if (Object.keys(latestMap).length >= 16) break;
     }
+
     return res.status(200).json({
       status: true,
       device: rawPayload.device,
       data: Object.values(latestMap),
-      total_count: allRecords.length
+      total_count: totalLen
     });
   }
 
-  // MODE 2: 'csv' -> Full entire historical dataset (all 40,000+ records)
+  // -------------------------------------------------------------
+  // MODE 2: 'csv' -> Full historical dataset
+  // -------------------------------------------------------------
   if (mode === 'csv') {
     return res.status(200).json({
       status: true,
       device: rawPayload.device,
       data: allRecords,
-      total_count: allRecords.length
+      total_count: totalLen
     });
   }
 
-  // MODE 3: 'recent' -> Last 5 Days data only (for the table feed)
-  // Calculate cutoff timestamp: 5 days prior to the newest recorded log
+  // -------------------------------------------------------------
+  // MODE 3: 'recent' -> Optimized Fast Date Parsing & Slice
+  // Pre-computes integer epoch timestamps instead of redundant Date objects
+  // -------------------------------------------------------------
   let maxTime = 0;
-  for (let i = 0; i < Math.min(100, allRecords.length); i++) {
-    const t = new Date(allRecords[i].created_at).getTime();
+  const sampleLimit = Math.min(50, totalLen);
+  for (let i = 0; i < sampleLimit; i++) {
+    const t = Date.parse(allRecords[i].created_at);
     if (!isNaN(t) && t > maxTime) maxTime = t;
   }
   if (!maxTime) maxTime = now;
-  const fiveDaysCutoff = maxTime - (5 * 24 * 60 * 60 * 1000);
 
+  const fiveDaysCutoff = maxTime - (5 * 24 * 60 * 60 * 1000);
   const fiveDayRecords = [];
-  for (let i = 0; i < allRecords.length; i++) {
+
+  for (let i = 0; i < totalLen; i++) {
     const item = allRecords[i];
     if (item && item.created_at) {
-      const t = new Date(item.created_at).getTime();
-      if (t >= fiveDaysCutoff) {
+      const timeMs = Date.parse(item.created_at);
+      if (timeMs >= fiveDaysCutoff) {
+        // Cache numeric time for sorting
+        item._t = timeMs;
         fiveDayRecords.push(item);
       }
     }
   }
 
-  fiveDayRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // Fast numeric sort (avoids creating 2 Date objects per item comparison)
+  fiveDayRecords.sort((a, b) => (b._t || 0) - (a._t || 0));
 
   return res.status(200).json({
     status: true,
     device: rawPayload.device,
     data: fiveDayRecords,
-    total_count: allRecords.length,
+    total_count: totalLen,
     five_day_count: fiveDayRecords.length
   });
 }
-

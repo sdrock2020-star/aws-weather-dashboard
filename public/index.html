@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
   
+  <!-- Preload CDN Origins for Faster Execution -->
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+
   <!-- PWA & Mobile Web App Meta -->
   <link rel="manifest" href="/manifest.json"/>
   <meta name="theme-color" content="#10b981"/>
@@ -30,13 +35,59 @@
     const { useState, useEffect, useMemo } = React;
 
     const STATIONS = [
-  { id: "farm", name: "IIWM Mendhasal" },
-  { id: "main", name: "IIWM Campus" }
-];
+      { id: "farm", name: "IIWM Mendhasal" },
+      { id: "main", name: "IIWM Campus" }
+    ];
 
     const clientStationCache = {
       farm: null,
       main: null
+    };
+
+    const STATION_PARAMS_INFO = {
+      farm: {
+        name: "IIWM Mendhasal",
+        count: 15,
+        params: [
+          { name: "Air Temperature", unit: "°C" },
+          { name: "Relative Humidity", unit: "%" },
+          { name: "Rainfall", unit: "mm" },
+          { name: "Barometric Air Pressure", unit: "Kpa" },
+          { name: "Wind Speed", unit: "m/s" },
+          { name: "Solar Radiation", unit: "w/m²" },
+          { name: "Sunshine Hours", unit: "h" },
+          { name: "Soil Moisture", unit: "%" },
+          { name: "Soil Temperature", unit: "°C" },
+          { name: "CO2 Level", unit: "PPM" },
+          { name: "Illumination / Lux", unit: "LUX" },
+          { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+          { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
+          { name: "Battery Working Level", unit: "mV" },
+          { name: "Solar Panel Voltage", unit: "mV" }
+        ]
+      },
+      main: {
+        name: "IIWM Campus",
+        count: 16,
+        params: [
+          { name: "Air Temperature", unit: "°C" },
+          { name: "Relative Humidity", unit: "%" },
+          { name: "Rainfall", unit: "mm" },
+          { name: "Barometric Air Pressure", unit: "Kpa" },
+          { name: "Wind Speed", unit: "m/s" },
+          { name: "Wind Direction", unit: "°", special: true },
+          { name: "Solar Radiation", unit: "w/m²" },
+          { name: "Sunshine Hours", unit: "h" },
+          { name: "Soil Moisture", unit: "%" },
+          { name: "Soil Temperature", unit: "°C" },
+          { name: "CO2 Level", unit: "PPM" },
+          { name: "Illumination / Lux", unit: "LUX" },
+          { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+          { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
+          { name: "Battery Working Level", unit: "mV" },
+          { name: "Solar Panel Voltage", unit: "mV" }
+        ]
+      }
     };
 
     // Formats "2026-06-03 04:59:49" -> "03-06-2026 04:59:49"
@@ -86,7 +137,7 @@
       return (
         <div className={`bg-white dark:bg-slate-900/80 border rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between transition ${
           isDropped 
-            ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5" 
+            ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5"
             : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
         }`}>
           <div className="flex items-center justify-between mb-2">
@@ -104,20 +155,17 @@
               </span>
               {!isDropped && <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
             </div>
-
             <div className="mt-2 flex items-center justify-between flex-wrap gap-1">
               {timestamp ? (
                 <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono">
                   <i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
                 </p>
               ) : <div></div>}
-
               {badge && (
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.bg}`}>
                   {badge.label}
                 </span>
               )}
-
               {isStale && !isDropped && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   Stale
@@ -131,18 +179,39 @@
 
     function App() {
       const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
-      const [cardData, setCardData] = useState(null);
+      
+      // 0ms instant render from localStorage
+      const [cardData, setCardData] = useState(() => {
+        try {
+          const cached = localStorage.getItem(`aws_cache_${STATIONS[0].id}`);
+          return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+          return null;
+        }
+      });
+
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState(null);
 
-      // Diagnostics & Telemetry UI states
+      // Diagnostics, Telemetry & Modal UI states
       const [showDiag, setShowDiag] = useState(false);
+      const [showParamModal, setShowParamModal] = useState(false);
+      const [showFeedbackModal, setShowFeedbackModal] = useState(false);
       const [showTelemetry, setShowTelemetry] = useState(false);
       const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
       const [loadingLogs, setLoadingLogs] = useState(false);
       const [selectedDate, setSelectedDate] = useState("");
       const [downloadingCSV, setDownloadingCSV] = useState(false);
+
+      // Feedback form states
+      const [feedbackName, setFeedbackName] = useState("");
+      const [feedbackDesignation, setFeedbackDesignation] = useState("");
+      const [feedbackStation, setFeedbackStation] = useState("Both / General");
+      const [feedbackParam, setFeedbackParam] = useState("");
+      const [feedbackDesc, setFeedbackDesc] = useState("");
+      const [feedbackImageName, setFeedbackImageName] = useState("");
+      const [feedbackImagePreview, setFeedbackImagePreview] = useState(null);
 
       const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
 
@@ -157,22 +226,29 @@
       }, [darkMode]);
 
       const loadStationSnapshot = async (stationId, isBackground = false) => {
+        // 1. Instant render from memory or localStorage
         if (clientStationCache[stationId]) {
-          if (!isBackground) {
-            setCardData(clientStationCache[stationId]);
-            setLastRefreshed(new Date().toLocaleTimeString());
-          }
-        } else if (!isBackground) {
-          setLoading(true);
+          setCardData(clientStationCache[stationId]);
+        } else {
+          try {
+            const localSaved = localStorage.getItem(`aws_cache_${stationId}`);
+            if (localSaved) {
+              const parsed = JSON.parse(localSaved);
+              clientStationCache[stationId] = parsed;
+              setCardData(parsed);
+            }
+          } catch (e) {}
         }
 
+        // 2. Fetch fresh data from API
         try {
           const res = await fetch(`/api/weather?station=${stationId}&mode=latest`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const resData = await res.json();
           if (resData && resData.status) {
             clientStationCache[stationId] = resData;
-            if (selectedStation.id === stationId || !isBackground) {
+            localStorage.setItem(`aws_cache_${stationId}`, JSON.stringify(resData));
+            if (selectedStation.id === stationId) {
               setCardData(resData);
               setLastRefreshed(new Date().toLocaleTimeString());
             }
@@ -204,7 +280,6 @@
         loadStationSnapshot(selectedStation.id, false);
         setFiveDaysLogs([]);
         setSelectedDate("");
-
         if (showTelemetry) {
           fetchFiveDayLogs(selectedStation.id);
         }
@@ -237,7 +312,7 @@
           }
         }, 50);
         return () => clearTimeout(t);
-      }, [cardData, loading, showTelemetry, showDiag, darkMode]);
+      }, [cardData, loading, showTelemetry, showDiag, showParamModal, showFeedbackModal, darkMode, feedbackImagePreview]);
 
       const latestMetrics = useMemo(() => {
         if (!cardData || !Array.isArray(cardData.data)) return {};
@@ -270,16 +345,15 @@
         const batteryRaw = latestMetrics["battery_level"]?.value;
         const batteryMv = parseFloat(batteryRaw);
         const isLowBattery = !isNaN(batteryMv) && batteryMv < 11800;
-
         const isTelemetryOffline = newestTimestamp ? (Date.now() - newestTimestamp) > 12 * 3600 * 1000 : false;
-
+        
         const monitoredList = [
           "temperature", "rainfall", "humidity", "air_pressure", 
           "wind_velocity", "solar_radiation", "sunshine_hours", 
           "soil_humidity", "soil_temperature", "co2", "illumination", 
           "pm25", "pm10", "battery_level", "solar_panel_voltage"
         ];
-
+        
         const dropped = [];
         for (let i = 0; i < monitoredList.length; i++) {
           const k = monitoredList[i];
@@ -322,7 +396,6 @@
           const res = await fetch(`/api/weather?station=${selectedStation.id}&mode=csv`);
           const resData = await res.json();
           const allRecords = resData.data || [];
-
           if (!allRecords.length) return alert("No records available to export.");
 
           const headers = ["Station", "Device Name", "MAC Address", "Parameter", "Class Code", "Value", "Unit", "Observed Timestamp"];
@@ -352,6 +425,46 @@
         } finally {
           setDownloadingCSV(false);
         }
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setFeedbackImageName(file.name);
+          const reader = new FileReader();
+          reader.onload = (uploadEvent) => {
+            setFeedbackImagePreview(uploadEvent.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      const handleSendFeedbackEmail = (e) => {
+        e.preventDefault();
+        if (!feedbackDesc.trim()) {
+          alert("Please provide a description of the issue or incorrect observation.");
+          return;
+        }
+
+        const recipientEmail = "sdrock2020@gmail.com"; 
+        const subject = encodeURIComponent(`[AWS Telemetry Issue Report] - ${feedbackStation}`);
+        
+        let bodyContent = `Automated Weather Station (AWS) - Data Feedback / Issue Report\n`;
+        bodyContent += `===========================================================\n\n`;
+        bodyContent += `Sender Name: ${feedbackName || "Not Provided"}\n`;
+        bodyContent += `Designation/Role: ${feedbackDesignation || "Not Provided"}\n`;
+        bodyContent += `Affected Station: ${feedbackStation}\n`;
+        bodyContent += `Affected Parameter: ${feedbackParam || "General / Multiple"}\n`;
+        bodyContent += `Dashboard Timestamp: ${lastRefreshed || "N/A"}\n\n`;
+        bodyContent += `Issue Description:\n-----------------\n${feedbackDesc}\n\n`;
+        if (feedbackImageName) {
+          bodyContent += `[Attachment Note]: User has prepared photo: "${feedbackImageName}". (Please attach this image file to this email if sending via your email client).\n`;
+        }
+        bodyContent += `\nSent via ICAR-IIWM AWS Telemetry Dashboard Web Portal`;
+
+        const mailtoLink = `mailto:${recipientEmail}?subject=${subject}&body=${encodeURIComponent(bodyContent)}`;
+        window.location.href = mailtoLink;
+        setShowFeedbackModal(false);
       };
 
       return (
@@ -400,6 +513,29 @@
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* Total Parameters Button */}
+                <button
+                  onClick={() => setShowParamModal(true)}
+                  title="View Monitored Parameters for Both Stations"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition shadow-sm cursor-pointer"
+                >
+                  <i data-lucide="list-checks" className="w-3.5 h-3.5 text-emerald-500"></i>
+                  <span>Total Parameters</span>
+                </button>
+
+                {/* Report Issue / Feedback Button */}
+                <button
+                  onClick={() => {
+                    setFeedbackStation(selectedStation.name);
+                    setShowFeedbackModal(true);
+                  }}
+                  title="Report Discrepancy or Incorrect Data"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition shadow-sm cursor-pointer"
+                >
+                  <i data-lucide="message-square-warning" className="w-3.5 h-3.5 text-rose-500"></i>
+                  <span>Feedback</span>
+                </button>
+
                 <button
                   onClick={handleDownloadFullCSV}
                   disabled={downloadingCSV}
@@ -510,55 +646,55 @@
           {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3.5 mt-5">
             <MetricCard 
-              title="Temperature" 
+              title="Temperature"
               value={latestMetrics["temperature"]?.value} 
               unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} 
-              icon="thermometer" 
-              color="bg-amber-500" 
+              icon="thermometer"
+              color="bg-amber-500"
               timestamp={latestMetrics["temperature"]?.created_at} 
               isStale={checkStale(latestMetrics["temperature"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("temperature")} 
             />
             
             <MetricCard 
-              title="Rainfall" 
+              title="Rainfall"
               value={latestMetrics["rainfall"]?.value} 
               unit={latestMetrics["rainfall"]?.unit || "mm"} 
-              icon="cloud-rain" 
-              color="bg-blue-500" 
+              icon="cloud-rain"
+              color="bg-blue-500"
               timestamp={latestMetrics["rainfall"]?.created_at} 
               isStale={checkStale(latestMetrics["rainfall"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("rainfall")} 
             />
             
             <MetricCard 
-              title="Humidity" 
+              title="Humidity"
               value={latestMetrics["humidity"]?.value} 
               unit={latestMetrics["humidity"]?.unit || "%"} 
-              icon="droplets" 
-              color="bg-cyan-500" 
+              icon="droplets"
+              color="bg-cyan-500"
               timestamp={latestMetrics["humidity"]?.created_at} 
               isStale={checkStale(latestMetrics["humidity"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("humidity")} 
             />
             
             <MetricCard 
-              title="Air Pressure" 
+              title="Air Pressure"
               value={latestMetrics["air_pressure"]?.value} 
               unit={latestMetrics["air_pressure"]?.unit || "Kpa"} 
-              icon="gauge" 
-              color="bg-purple-500" 
+              icon="gauge"
+              color="bg-purple-500"
               timestamp={latestMetrics["air_pressure"]?.created_at} 
               isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("air_pressure")} 
             />
             
             <MetricCard 
-              title="Wind Speed" 
+              title="Wind Speed"
               value={latestMetrics["wind_velocity"]?.value} 
               unit={latestMetrics["wind_velocity"]?.unit || "m/s"} 
-              icon="wind" 
-              color="bg-teal-500" 
+              icon="wind"
+              color="bg-teal-500"
               timestamp={latestMetrics["wind_velocity"]?.created_at} 
               isStale={checkStale(latestMetrics["wind_velocity"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("wind_velocity")} 
@@ -566,77 +702,77 @@
             
             {latestMetrics["wind_direction"] && (
               <MetricCard 
-                title="Wind Direction" 
+                title="Wind Direction"
                 value={latestMetrics["wind_direction"]?.value} 
-                unit="°" 
-                icon="compass" 
-                color="bg-sky-500" 
+                unit="°"
+                icon="compass"
+                color="bg-sky-500"
                 timestamp={latestMetrics["wind_direction"]?.created_at} 
                 isStale={checkStale(latestMetrics["wind_direction"]?.created_at)} 
               />
             )}
 
             <MetricCard 
-              title="Solar Radiation" 
+              title="Solar Radiation"
               value={latestMetrics["solar_radiation"]?.value} 
               unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} 
-              icon="sun" 
-              color="bg-yellow-500" 
+              icon="sun"
+              color="bg-yellow-500"
               timestamp={latestMetrics["solar_radiation"]?.created_at} 
               isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("solar_radiation")} 
             />
             
             <MetricCard 
-              title="Sunshine Hours" 
+              title="Sunshine Hours"
               value={latestMetrics["sunshine_hours"]?.value} 
               unit={latestMetrics["sunshine_hours"]?.unit || "h"} 
-              icon="sun-medium" 
-              color="bg-orange-400" 
+              icon="sun-medium"
+              color="bg-orange-400"
               timestamp={latestMetrics["sunshine_hours"]?.created_at} 
               isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("sunshine_hours")} 
             />
             
             <MetricCard 
-              title="Soil Moisture" 
+              title="Soil Moisture"
               value={latestMetrics["soil_humidity"]?.value} 
               unit={latestMetrics["soil_humidity"]?.unit || "%"} 
-              icon="sprout" 
-              color="bg-emerald-600" 
+              icon="sprout"
+              color="bg-emerald-600"
               timestamp={latestMetrics["soil_humidity"]?.created_at} 
               isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("soil_humidity")} 
             />
             
             <MetricCard 
-              title="Soil Temp" 
+              title="Soil Temp"
               value={latestMetrics["soil_temperature"]?.value} 
               unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} 
-              icon="thermometer" 
-              color="bg-lime-600" 
+              icon="thermometer"
+              color="bg-lime-600"
               timestamp={latestMetrics["soil_temperature"]?.created_at} 
               isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("soil_temperature")} 
             />
             
             <MetricCard 
-              title="CO2 Level" 
+              title="CO2 Level"
               value={latestMetrics["co2"]?.value} 
               unit={latestMetrics["co2"]?.unit || "PPM"} 
-              icon="cloud" 
-              color="bg-indigo-500" 
+              icon="cloud"
+              color="bg-indigo-500"
               timestamp={latestMetrics["co2"]?.created_at} 
               isStale={checkStale(latestMetrics["co2"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("co2")} 
             />
             
             <MetricCard 
-              title="Illumination" 
+              title="Illumination"
               value={latestMetrics["illumination"]?.value} 
               unit={latestMetrics["illumination"]?.unit || "LUX"} 
-              icon="lightbulb" 
-              color="bg-amber-400" 
+              icon="lightbulb"
+              color="bg-amber-400"
               timestamp={latestMetrics["illumination"]?.created_at} 
               isStale={checkStale(latestMetrics["illumination"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("illumination")} 
@@ -644,49 +780,49 @@
             
             {/* PM 2.5 with Indian CPCB Dynamic Badge */}
             <MetricCard 
-              title="PM 2.5" 
+              title="PM 2.5"
               value={latestMetrics["pm25"]?.value} 
               unit={latestMetrics["pm25"]?.unit || "ug/m³"} 
-              icon="wind" 
-              color="bg-rose-400" 
+              icon="wind"
+              color="bg-rose-400"
               timestamp={latestMetrics["pm25"]?.created_at} 
-              isStale={checkStale(latestMetrics["pm25"]?.created_at)}
+              isStale={checkStale(latestMetrics["pm25"]?.created_at)} 
               badge={getAqiBadge("pm25", latestMetrics["pm25"]?.value)}
-              isDropped={diagnostics.droppedSensors.includes("pm25")}
+              isDropped={diagnostics.droppedSensors.includes("pm25")} 
             />
             
             {/* PM 10 with Indian CPCB Dynamic Badge */}
             <MetricCard 
-              title="PM 10" 
+              title="PM 10"
               value={latestMetrics["pm10"]?.value} 
               unit={latestMetrics["pm10"]?.unit || "ug/m³"} 
-              icon="activity" 
-              color="bg-rose-500" 
+              icon="activity"
+              color="bg-rose-500"
               timestamp={latestMetrics["pm10"]?.created_at} 
-              isStale={checkStale(latestMetrics["pm10"]?.created_at)}
+              isStale={checkStale(latestMetrics["pm10"]?.created_at)} 
               badge={getAqiBadge("pm10", latestMetrics["pm10"]?.value)}
-              isDropped={diagnostics.droppedSensors.includes("pm10")}
+              isDropped={diagnostics.droppedSensors.includes("pm10")} 
             />
             
             {/* Battery Level with Low Battery Alert */}
             <MetricCard 
-              title="Battery" 
+              title="Battery"
               value={latestMetrics["battery_level"]?.value} 
               unit={latestMetrics["battery_level"]?.unit || "mV"} 
-              icon="battery-charging" 
+              icon="battery-charging"
               color={diagnostics.isLowBattery ? "bg-rose-500" : "bg-green-500"} 
               timestamp={latestMetrics["battery_level"]?.created_at} 
               isStale={checkStale(latestMetrics["battery_level"]?.created_at)} 
               badge={diagnostics.isLowBattery ? { label: "Low", bg: "bg-rose-500/10 text-rose-500 border-rose-500/20" } : null}
-              isDropped={diagnostics.droppedSensors.includes("battery_level")}
+              isDropped={diagnostics.droppedSensors.includes("battery_level")} 
             />
             
             <MetricCard 
-              title="Solar Panel" 
+              title="Solar Panel"
               value={latestMetrics["solar_panel_voltage"]?.value} 
               unit={latestMetrics["solar_panel_voltage"]?.unit || "mV"} 
-              icon="zap" 
-              color="bg-amber-600" 
+              icon="zap"
+              color="bg-amber-600"
               timestamp={latestMetrics["solar_panel_voltage"]?.created_at} 
               isStale={checkStale(latestMetrics["solar_panel_voltage"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("solar_panel_voltage")} 
@@ -732,8 +868,8 @@
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
-                      <select
-                        value={selectedDate}
+                      <select 
+                        value={selectedDate} 
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                       >
@@ -799,6 +935,260 @@
               </div>
             )}
           </div>
+
+          {/* Total Parameters Modal */}
+          {showParamModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[85vh]">
+                
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <i data-lucide="clipboard-list" className="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                        AWS Monitored Parameters
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Configured sensor parameters across both stations
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowParamModal(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <i data-lucide="x" className="w-5 h-5"></i>
+                  </button>
+                </div>
+
+                {/* Body / Two Stations */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-y-auto pr-1 text-xs">
+                  {/* Mendhasal */}
+                  <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs uppercase tracking-wider">
+                        {STATION_PARAMS_INFO.farm.name}
+                      </span>
+                      <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        {STATION_PARAMS_INFO.farm.count} Parameters
+                      </span>
+                    </div>
+                    <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
+                      {STATION_PARAMS_INFO.farm.params.map((p, idx) => (
+                        <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
+                          <span>{idx + 1}. {p.name}</span>
+                          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Campus */}
+                  <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                      <span className="font-bold text-sky-600 dark:text-sky-400 text-xs uppercase tracking-wider">
+                        {STATION_PARAMS_INFO.main.name}
+                      </span>
+                      <span className="text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20">
+                        {STATION_PARAMS_INFO.main.count} Parameters
+                      </span>
+                    </div>
+                    <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
+                      {STATION_PARAMS_INFO.main.params.map((p, idx) => (
+                        <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
+                          <span className={p.special ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                            {idx + 1}. {p.name} {p.special && "★"}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>★ <em>Wind Direction is exclusively measured at Campus.</em></span>
+                  <button
+                    onClick={() => setShowParamModal(false)}
+                    className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Feedback & Anomaly Reporting Modal */}
+          {showFeedbackModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[90vh]">
+                
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <i data-lucide="message-square-warning" className="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        Report Data Anomaly / Feedback
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Send observations directly to the technical support team
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowFeedbackModal(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <i data-lucide="x" className="w-5 h-5"></i>
+                  </button>
+                </div>
+
+                {/* Form Body */}
+                <form onSubmit={handleSendFeedbackEmail} className="mt-4 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                  
+                  {/* Name & Designation */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Your Name (Optional)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={feedbackName}
+                        onChange={(e) => setFeedbackName(e.target.value)}
+                        placeholder="e.g., Subrat Dash"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Designation / Role (Optional)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={feedbackDesignation}
+                        onChange={(e) => setFeedbackDesignation(e.target.value)}
+                        placeholder="e.g., Young Professional / Scientist"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Station & Parameter Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Select Station
+                      </label>
+                      <select
+                        value={feedbackStation}
+                        onChange={(e) => setFeedbackStation(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500"
+                      >
+                        <option value="IIWM Mendhasal">IIWM Mendhasal</option>
+                        <option value="IIWM Campus">IIWM Campus</option>
+                        <option value="Both Stations / General UI">Both Stations / Dashboard Issue</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Affected Metric (Optional)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={feedbackParam}
+                        onChange={(e) => setFeedbackParam(e.target.value)}
+                        placeholder="e.g., Soil Moisture, Battery, PM 2.5"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Issue Description */}
+                  <div>
+                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                      Description of Issue / Feedback <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea 
+                      rows="3"
+                      required
+                      value={feedbackDesc}
+                      onChange={(e) => setFeedbackDesc(e.target.value)}
+                      placeholder="Describe what looks wrong or erroneous (e.g. sensor readings stuck, values out of nominal range, delay in timestamp)..."
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 resize-none"
+                    ></textarea>
+                  </div>
+
+                  {/* Photo / Screenshot Attachment (Optional) */}
+                  <div>
+                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                      Upload Screenshot / Photo (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 cursor-pointer text-slate-600 dark:text-slate-400 transition bg-slate-50 dark:bg-slate-950">
+                        <i data-lucide="image" className="w-4 h-4 text-emerald-500"></i>
+                        <span>{feedbackImageName ? "Change Photo" : "Choose File"}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleImageUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                      {feedbackImageName && (
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate max-w-[200px]">
+                          {feedbackImageName}
+                        </span>
+                      )}
+                    </div>
+                    {feedbackImagePreview && (
+                      <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <img src={feedbackImagePreview} alt="Feedback preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            setFeedbackImageName("");
+                            setFeedbackImagePreview(null);
+                          }}
+                          className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"
+                        >
+                          <i data-lucide="x" className="w-3 h-3"></i>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit / Action Buttons */}
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowFeedbackModal(false)}
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition shadow-md shadow-emerald-500/25"
+                    >
+                      <i data-lucide="send" className="w-3.5 h-3.5"></i>
+                      <span>Submit & Send Email</span>
+                    </button>
+                  </div>
+
+                </form>
+              </div>
+            </div>
+          )}
+
         </div>
       );
     }
