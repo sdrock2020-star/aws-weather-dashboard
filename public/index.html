@@ -1,40 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>AWS Telemetry Dashboard - Bhubaneshwar</title>
-  
-  <link rel="preconnect" href="https://unpkg.com">
-  <link rel="preconnect" href="https://cdn.tailwindcss.com">
-  <link rel="dns-prefetch" href="https://unpkg.com">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automated Weather Station (AWS) Dashboard - ICAR-IIWM</title>
 
-  <link rel="manifest" href="/manifest.json"/>
-  <meta name="theme-color" content="#10b981"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <link rel="apple-touch-icon" href="/icar.png"/>
-
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
-    }
+    };
   </script>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone (JSX Transformer) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.15s ease-out forwards;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased transition-colors duration-200">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors antialiased">
+  
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
     const STATIONS = [
-      { id: "farm", name: "IIWM FARM Mendhasal" },
-      { id: "main", name: "IIWM Campus" }
+      { id: "farm", name: "IIWM FARM MENDHASAL" },
+      { id: "main", name: "IIWM CAMPUS BHUBANESWAR" }
     ];
 
     const clientStationCache = {
@@ -42,9 +50,15 @@
       main: null
     };
 
+    // In-memory cache for full historical dataset to make all date ranges instant
+    const fullHistoryCache = {
+      farm: null,
+      main: null
+    };
+
     const STATION_PARAMS_INFO = {
       farm: {
-        name: "IIWM Mendhasal",
+        name: "IIWM FARM MENDHASAL",
         count: 15,
         params: [
           { name: "Temperature", unit: "°C" },
@@ -65,7 +79,7 @@
         ]
       },
       main: {
-        name: "IIWM Campus",
+        name: "IIWM CAMPUS BHUBANESWAR",
         count: 16,
         params: [
           { name: "Temperature", unit: "°C" },
@@ -135,26 +149,15 @@
           isDropped 
             ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5"
             : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-        }`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">
+        }`}><div className="flex items-center justify-between mb-2"><span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">
               {title}
-            </span>
-            <div className={`p-1.5 sm:p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center flex-shrink-0`}>
-              <i data-lucide={icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline space-x-1.5 flex-wrap">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            </span><div className={`p-1.5 sm:p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center flex-shrink-0`}><i data-lucide={icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4"></i></div></div><div><div className="flex items-baseline space-x-1.5 flex-wrap"><span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {isDropped ? "Offline" : (value ?? "--")}
               </span>
-              {!isDropped && <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
-            </div>
-            <div className="mt-2 flex items-center justify-between flex-wrap gap-1">
+              {!isDropped &&<span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
+            </div><div className="mt-2 flex items-center justify-between flex-wrap gap-1">
               {timestamp ? (
-                <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono">
-                  <i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
+                <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono"><i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
                 </p>
               ) : <div></div>}
               {badge && (
@@ -167,9 +170,7 @@
                   Stale
                 </span>
               )}
-            </div>
-          </div>
-        </div>
+            </div></div></div>
       );
     }
 
@@ -195,6 +196,8 @@
     function App() {
       const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
       const [selectedDate, setSelectedDate] = useState("");
+      const [startDate, setStartDate] = useState("");
+      const [endDate, setEndDate] = useState("");
       const [selectedParam, setSelectedParam] = useState("all");
       
       const [cardData, setCardData] = useState(() => {
@@ -215,6 +218,7 @@
       const [showFeedbackModal, setShowFeedbackModal] = useState(false);
       const [showTelemetry, setShowTelemetry] = useState(false);
       const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
+      const [isFullHistoryLoaded, setIsFullHistoryLoaded] = useState(false);
       const [loadingLogs, setLoadingLogs] = useState(false);
       const [downloadingCSV, setDownloadingCSV] = useState(false);
 
@@ -271,7 +275,8 @@
         }
       };
 
-      const fetchFiveDayLogs = async (stationId) => {
+      // Loads initial recent 5 days for speed
+      const fetchRecentLogs = async (stationId) => {
         setLoadingLogs(true);
         try {
           const res = await fetch(`/api/weather?station=${stationId}&mode=recent`);
@@ -279,21 +284,52 @@
           const resData = await res.json();
           if (resData && resData.status && Array.isArray(resData.data)) {
             setFiveDaysLogs(resData.data);
+            setIsFullHistoryLoaded(false);
           }
         } catch (err) {
-          console.error("Telemetry error:", err);
+          console.error("Recent telemetry error:", err);
         } finally {
           setLoadingLogs(false);
         }
       };
 
+      // Loads full history on demand when user picks a custom date range
+      const fetchFullHistoricalLogs = async (stationId) => {
+        if (fullHistoryCache[stationId]) {
+          setFiveDaysLogs(fullHistoryCache[stationId]);
+          setIsFullHistoryLoaded(true);
+          return;
+        }
+
+        setLoadingLogs(true);
+        try {
+          const res = await fetch(`/api/weather?station=${stationId}&mode=csv`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const resData = await res.json();
+          if (resData && Array.isArray(resData.data)) {
+            fullHistoryCache[stationId] = resData.data;
+            setFiveDaysLogs(resData.data);
+            setIsFullHistoryLoaded(true);
+          }
+        } catch (err) {
+          console.error("Full history fetch error:", err);
+        } finally {
+          setLoadingLogs(false);
+        }
+      };
+
+      // Station Change Effect
       useEffect(() => {
         loadStationSnapshot(selectedStation.id, false);
         setFiveDaysLogs([]);
         setSelectedDate("");
+        setStartDate("");     
+        setEndDate("");        
         setSelectedParam("all");
+        setIsFullHistoryLoaded(false);
+
         if (showTelemetry) {
-          fetchFiveDayLogs(selectedStation.id);
+          fetchRecentLogs(selectedStation.id);
         }
 
         const otherStation = STATIONS.find(s => s.id !== selectedStation.id);
@@ -303,6 +339,18 @@
         }
         return () => { if (timer) clearTimeout(timer); };
       }, [selectedStation.id]);
+
+      // Detects when user chooses custom date range and pulls historical records
+      useEffect(() => {
+        if (!showTelemetry) return;
+
+        if (startDate || endDate) {
+          // Fetch full database if not already loaded into memory
+          if (!isFullHistoryLoaded) {
+            fetchFullHistoricalLogs(selectedStation.id);
+          }
+        }
+      }, [startDate, endDate, showTelemetry, selectedStation.id, isFullHistoryLoaded]);
 
       const handleStationSwitch = (station) => {
         if (selectedStation.id === station.id) return;
@@ -397,9 +445,24 @@
 
       const filteredLogs = useMemo(() => {
         if (!Array.isArray(fiveDaysLogs)) return [];
-        if (!selectedDate) return fiveDaysLogs;
-        return fiveDaysLogs.filter(i => i && typeof i.created_at === 'string' && i.created_at.startsWith(selectedDate));
-      }, [fiveDaysLogs, selectedDate]);
+        
+        return fiveDaysLogs.filter(i => {
+          if (!i || typeof i.created_at !== 'string' || i.created_at.length < 10) return false;
+          const itemDateStr = i.created_at.substring(0, 10);
+
+          if (selectedDate && itemDateStr !== selectedDate) {
+            return false;
+          }
+          if (startDate && itemDateStr < startDate) {
+            return false;
+          }
+          if (endDate && itemDateStr > endDate) {
+            return false;
+          }
+
+          return true;
+        });
+      }, [fiveDaysLogs, selectedDate, startDate, endDate]);
 
       const pivotedTelemetryRows = useMemo(() => {
         if (!Array.isArray(filteredLogs) || !filteredLogs.length) return [];
@@ -425,7 +488,6 @@
         );
       }, [filteredLogs]);
 
-      // Filters columns by station and the selected parameter
       const activeColumns = useMemo(() => {
         return TELEMETRY_COLUMNS.filter(col => {
           if (col.campusOnly && selectedStation.id !== "main") return false;
@@ -585,7 +647,6 @@
                   </button>
                 ))}
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowParamModal(true)}
@@ -595,7 +656,6 @@
                   <i data-lucide="list-checks" className="w-3.5 h-3.5 text-emerald-500"></i>
                   <span>Total Parameters</span>
                 </button>
-
                 <button
                   onClick={() => {
                     setFeedbackStation(selectedStation.name);
@@ -607,7 +667,6 @@
                   <i data-lucide="message-square-warning" className="w-3.5 h-3.5 text-rose-500"></i>
                   <span>Feedback</span>
                 </button>
-
                 <button
                   onClick={handleDownloadFullCSV}
                   disabled={downloadingCSV}
@@ -617,7 +676,6 @@
                   <i data-lucide={downloadingCSV ? "refresh-cw" : "download"} className={`w-3.5 h-3.5 text-emerald-500 ${downloadingCSV ? 'animate-spin' : ''}`}></i>
                   <span>{downloadingCSV ? "Exporting..." : "CSV"}</span>
                 </button>
-
                 <button
                   onClick={() => setDarkMode(!darkMode)}
                   title="Toggle Dark / Light Mode"
@@ -625,11 +683,16 @@
                 >
                   <i data-lucide={darkMode ? "sun" : "moon"} className="w-4 h-4"></i>
                 </button>
-
                 <button
                   onClick={() => {
                     loadStationSnapshot(selectedStation.id, false);
-                    if (showTelemetry) fetchFiveDayLogs(selectedStation.id);
+                    if (showTelemetry) {
+                      if (startDate || endDate) {
+                        fetchFullHistoricalLogs(selectedStation.id);
+                      } else {
+                        fetchRecentLogs(selectedStation.id);
+                      }
+                    }
                   }}
                   disabled={loading}
                   title="Refresh Data"
@@ -727,7 +790,6 @@
               isStale={checkStale(latestMetrics["temperature"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("temperature")} 
             />
-            
             <MetricCard 
               title="Rainfall"
               value={latestMetrics["rainfall"]?.value} 
@@ -738,7 +800,6 @@
               isStale={checkStale(latestMetrics["rainfall"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("rainfall")} 
             />
-            
             <MetricCard 
               title="Humidity"
               value={latestMetrics["humidity"]?.value} 
@@ -749,7 +810,6 @@
               isStale={checkStale(latestMetrics["humidity"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("humidity")} 
             />
-            
             <MetricCard 
               title="Air Pressure"
               value={latestMetrics["air_pressure"]?.value} 
@@ -760,7 +820,6 @@
               isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("air_pressure")} 
             />
-            
             <MetricCard 
               title="Wind Velocity"
               value={latestMetrics["wind_velocity"]?.value} 
@@ -794,7 +853,6 @@
               isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("solar_radiation")} 
             />
-            
             <MetricCard 
               title="Sunshine Hours"
               value={latestMetrics["sunshine_hours"]?.value} 
@@ -805,7 +863,6 @@
               isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("sunshine_hours")} 
             />
-            
             <MetricCard 
               title="Soil Humidity"
               value={latestMetrics["soil_humidity"]?.value} 
@@ -816,7 +873,6 @@
               isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("soil_humidity")} 
             />
-            
             <MetricCard 
               title="Soil Temp"
               value={latestMetrics["soil_temperature"]?.value} 
@@ -827,7 +883,6 @@
               isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("soil_temperature")} 
             />
-            
             <MetricCard 
               title="CO2 Level"
               value={latestMetrics["co2"]?.value} 
@@ -838,7 +893,6 @@
               isStale={checkStale(latestMetrics["co2"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("co2")} 
             />
-            
             <MetricCard 
               title="Illumination"
               value={latestMetrics["illumination"]?.value} 
@@ -849,7 +903,6 @@
               isStale={checkStale(latestMetrics["illumination"]?.created_at)} 
               isDropped={diagnostics.droppedSensors.includes("illumination")} 
             />
-            
             <MetricCard 
               title="PM 2.5"
               value={latestMetrics["pm25"]?.value} 
@@ -861,7 +914,6 @@
               badge={getAqiBadge("pm25", latestMetrics["pm25"]?.value)}
               isDropped={diagnostics.droppedSensors.includes("pm25")} 
             />
-            
             <MetricCard 
               title="PM 10"
               value={latestMetrics["pm10"]?.value} 
@@ -873,7 +925,6 @@
               badge={getAqiBadge("pm10", latestMetrics["pm10"]?.value)}
               isDropped={diagnostics.droppedSensors.includes("pm10")} 
             />
-            
             <MetricCard 
               title="Battery"
               value={latestMetrics["battery_level"]?.value} 
@@ -885,7 +936,6 @@
               badge={diagnostics.isLowBattery ? { label: "Low", bg: "bg-rose-500/10 text-rose-500 border-rose-500/20" } : null}
               isDropped={diagnostics.droppedSensors.includes("battery_level")} 
             />
-            
             <MetricCard 
               title="Solar Panel"
               value={latestMetrics["solar_panel_voltage"]?.value} 
@@ -898,13 +948,19 @@
             />
           </div>
 
-          {/* Telemetry Tab: Last 5 Days Matrix */}
+          {/* Telemetry Tab: Matrix */}
           <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
             <div 
               onClick={() => {
                 const next = !showTelemetry;
                 setShowTelemetry(next);
-                if (next && fiveDaysLogs.length === 0) fetchFiveDayLogs(selectedStation.id);
+                if (next && fiveDaysLogs.length === 0) {
+                  if (startDate || endDate) {
+                    fetchFullHistoricalLogs(selectedStation.id);
+                  } else {
+                    fetchRecentLogs(selectedStation.id);
+                  }
+                }
               }}
               className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition text-left cursor-pointer select-none"
             >
@@ -914,9 +970,9 @@
                 </div>
                 <div>
                   <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Live Telemetry Feeds
+                    Live Telemetry Feeds
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      {pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs"}
+                      {loadingLogs ? "Loading records..." : (pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs")}
                     </span>
                   </h2>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
@@ -929,14 +985,14 @@
 
             {showTelemetry && (
               <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-3 gap-2.5">
                   <div>
                     <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
-                    Showing {pivotedTelemetryRows.length} recent transmissions
+                      Showing {pivotedTelemetryRows.length} recent transmissions
                     </p>
                   </div>
                   
-                  {/* Filter Group: Parameter Filter + Date Filter */}
+                  {/* Filter Group: Parameter Filter + Single Date Dropdown + Custom Date Range */}
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Parameter Selector Dropdown */}
                     <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
@@ -967,11 +1023,17 @@
                       )}
                     </div>
 
-                    {/* Date Selector Dropdown */}
+                    {/* Single Date Selector Dropdown */}
                     <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
                       <select 
                         value={selectedDate} 
-                        onChange={(e) => setSelectedDate(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedDate(e.target.value);
+                          if (e.target.value) {
+                            setStartDate("");
+                            setEndDate("");
+                          }
+                        }}
                         className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                       >
                         <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Recent Dates</option>
@@ -996,13 +1058,61 @@
                         </button>
                       )}
                     </div>
+
+                    {/* Custom Range: From & To Date Pickers */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        <span>From:</span>
+                        <input 
+                          type="date" 
+                          value={startDate}
+                          max={endDate || undefined}
+                          onChange={(e) => {
+                            setStartDate(e.target.value);
+                            setSelectedDate("");
+                          }}
+                          className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                        />
+                      </div>
+
+                      <span className="text-slate-300 dark:text-slate-700 font-bold">|</span>
+
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        <span>To:</span>
+                        <input 
+                          type="date" 
+                          value={endDate}
+                          min={startDate || undefined}
+                          onChange={(e) => {
+                            setEndDate(e.target.value);
+                            setSelectedDate("");
+                          }}
+                          className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                        />
+                      </div>
+
+                      {(startDate || endDate) && (
+                        <button 
+                          type="button" 
+                          onClick={() => { 
+                            setStartDate(""); 
+                            setEndDate(""); 
+                            fetchRecentLogs(selectedStation.id);
+                          }} 
+                          title="Clear Date Range" 
+                          className="text-xs text-rose-500 hover:text-rose-600 font-bold ml-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {loadingLogs ? (
                   <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500">
                     <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs font-medium">Filtering records...</span>
+                    <span className="text-xs font-medium">Fetching historical records...</span>
                   </div>
                 ) : (
                   <div className="overflow-x-auto max-h-[500px] border border-slate-200 dark:border-slate-800 rounded-xl">
@@ -1026,7 +1136,6 @@
                           ))}
                         </tr>
                       </thead>
-
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
                         {pivotedTelemetryRows.length > 0 ? (
                           pivotedTelemetryRows.map((row, idx) => (
@@ -1091,7 +1200,6 @@
                     <i data-lucide="x" className="w-5 h-5"></i>
                   </button>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-y-auto pr-1 text-xs">
                   <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
@@ -1111,7 +1219,6 @@
                       ))}
                     </ul>
                   </div>
-
                   <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
                       <span className="font-bold text-sky-600 dark:text-sky-400 text-xs uppercase tracking-wider">
@@ -1133,7 +1240,6 @@
                     </ul>
                   </div>
                 </div>
-
                 <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                   <button
                     onClick={() => setShowParamModal(false)}
@@ -1168,7 +1274,6 @@
                     <i data-lucide="x" className="w-5 h-5"></i>
                   </button>
                 </div>
-
                 <form onSubmit={handleSendFeedbackEmail} className="mt-4 overflow-y-auto space-y-3.5 pr-1 text-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1196,7 +1301,6 @@
                       />
                     </div>
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
@@ -1207,8 +1311,8 @@
                         onChange={(e) => setFeedbackStation(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500"
                       >
-                        <option value="IIWM Mendhasal">IIWM Mendhasal</option>
-                        <option value="IIWM Campus">IIWM Campus</option>
+                        <option value="IIWM FARM MENDHASAL">IIWM FARM MENDHASAL</option>
+                        <option value="IIWM CAMPUS BHUBANESWAR">IIWM CAMPUS BHUBANESWAR</option>
                         <option value="Both Stations / General UI">Both Stations / Dashboard Issue</option>
                       </select>
                     </div>
@@ -1225,7 +1329,6 @@
                       />
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                       Description of Issue / Feedback <span className="text-rose-500">*</span>
@@ -1239,7 +1342,6 @@
                       className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 resize-none"
                     ></textarea>
                   </div>
-
                   <div>
                     <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                       Upload Screenshot / Photo (Optional)
@@ -1248,12 +1350,7 @@
                       <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 cursor-pointer text-slate-600 dark:text-slate-400 transition bg-slate-50 dark:bg-slate-950">
                         <i data-lucide="image" className="w-4 h-4 text-emerald-500"></i>
                         <span>{feedbackImageName ? "Change Photo" : "Choose File"}</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleImageUpload} 
-                          className="hidden" 
-                        />
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                       </label>
                       {feedbackImageName && (
                         <span className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate max-w-[200px]">
@@ -1266,10 +1363,7 @@
                         <img src={feedbackImagePreview} alt="Feedback preview" className="w-full h-full object-cover" />
                         <button 
                           type="button" 
-                          onClick={() => {
-                            setFeedbackImageName("");
-                            setFeedbackImagePreview(null);
-                          }}
+                          onClick={() => { setFeedbackImageName(""); setFeedbackImagePreview(null); }}
                           className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"
                         >
                           <i data-lucide="x" className="w-3 h-3"></i>
@@ -1277,16 +1371,15 @@
                       </div>
                     )}
                   </div>
-
                   <div className="pt-2 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
+                    <button 
+                      type="button" 
                       onClick={() => setShowFeedbackModal(false)}
                       className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold transition"
                     >
                       Cancel
                     </button>
-                    <button
+                    <button 
                       type="submit"
                       className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition shadow-md shadow-emerald-500/25"
                     >
@@ -1298,7 +1391,6 @@
               </div>
             </div>
           )}
-
         </div>
       );
     }
