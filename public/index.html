@@ -73,7 +73,7 @@
           { name: "Rainfall", unit: "mm" },
           { name: "Air Pressure", unit: "Kpa" },
           { name: "Wind Velocity", unit: "m/s" },
-          { name: "Wind Direction", unit: "°", special: true },
+          { name: "Wind Direction", unit: "°"},
           { name: "Solar Radiation", unit: "w/m²" },
           { name: "Sunshine Hours", unit: "h" },
           { name: "Soil Humidity", unit: "%" },
@@ -914,7 +914,7 @@
                 </div>
                 <div>
                   <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    Live Telemetry Feeds (Last 5 Days)
+                  Live Telemetry Feeds
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                       {pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs"}
                     </span>
@@ -932,7 +932,7 @@
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
                   <div>
                     <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
-                      Showing {pivotedTelemetryRows.length} transmissions across the last 5 days
+                    Showing {pivotedTelemetryRows.length} recent transmissions
                     </p>
                   </div>
                   
@@ -974,7 +974,7 @@
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                       >
-                        <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Last 5 Days (All)</option>
+                        <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Recent Dates</option>
                         {availableDates.map(date => {
                           const [y, m, d] = date.split("-");
                           const displayDate = (y && m && d) ? `${d}-${m}-${y}` : date;
@@ -1157,11 +1157,8 @@
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                        Report Data Anomaly / Feedback
+                        Feedback
                       </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Send observations directly to the technical support team
-                      </p>
                     </div>
                   </div>
                   <button
@@ -1182,7 +1179,7 @@
                         type="text" 
                         value={feedbackName}
                         onChange={(e) => setFeedbackName(e.target.value)}
-                        placeholder="e.g., Subrat Dash"
+                        placeholder="e.g., XYZ"
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -1194,7 +1191,7 @@
                         type="text" 
                         value={feedbackDesignation}
                         onChange={(e) => setFeedbackDesignation(e.target.value)}
-                        placeholder="e.g., Young Professional / Scientist"
+                        placeholder="e.g., XYZ"
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -1238,7 +1235,7 @@
                       required
                       value={feedbackDesc}
                       onChange={(e) => setFeedbackDesc(e.target.value)}
-                      placeholder="Describe what looks wrong or erroneous (e.g. sensor readings stuck, values out of nominal range, delay in timestamp)..."
+                      placeholder="What the issue?"
                       className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 resize-none"
                     ></textarea>
                   </div>

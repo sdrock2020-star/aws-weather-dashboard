@@ -116,40 +116,50 @@ export default async function handler(req, res) {
   }
 
   // -------------------------------------------------------------
-  // MODE 3: 'recent' -> Optimized Fast Date Parsing & Slice
-  // Pre-computes integer epoch timestamps instead of redundant Date objects
+  // MODE 3: 'recent' -> 5-Day window with automatic latest fallback
   // -------------------------------------------------------------
   let maxTime = 0;
-  const sampleLimit = Math.min(50, totalLen);
+  const sampleLimit = Math.min(200, totalLen);
   for (let i = 0; i < sampleLimit; i++) {
-    const t = Date.parse(allRecords[i].created_at);
-    if (!isNaN(t) && t > maxTime) maxTime = t;
+    if (allRecords[i] && allRecords[i].created_at) {
+      const t = Date.parse(allRecords[i].created_at);
+      if (!isNaN(t) && t > maxTime) maxTime = t;
+    }
   }
-  if (!maxTime) maxTime = now;
 
-  const fiveDaysCutoff = maxTime - (5 * 24 * 60 * 60 * 1000);
-  const fiveDayRecords = [];
+  const fiveDaysCutoff = maxTime ? (maxTime - (5 * 24 * 60 * 60 * 1000)) : 0;
+  let recentRecords = [];
 
-  for (let i = 0; i < totalLen; i++) {
-    const item = allRecords[i];
-    if (item && item.created_at) {
-      const timeMs = Date.parse(item.created_at);
-      if (timeMs >= fiveDaysCutoff) {
-        // Cache numeric time for sorting
-        item._t = timeMs;
-        fiveDayRecords.push(item);
+  if (fiveDaysCutoff > 0) {
+    for (let i = 0; i < totalLen; i++) {
+      const item = allRecords[i];
+      if (item && item.created_at) {
+        const timeMs = Date.parse(item.created_at);
+        if (timeMs >= fiveDaysCutoff) {
+          item._t = timeMs;
+          recentRecords.push(item);
+        }
       }
     }
   }
 
-  // Fast numeric sort (avoids creating 2 Date objects per item comparison)
-  fiveDayRecords.sort((a, b) => (b._t || 0) - (a._t || 0));
+  // FALLBACK: If 5-day window has no records (delayed/stale station data),
+  // extract the newest 500 recorded entries so the table is never blank
+  if (recentRecords.length === 0) {
+    recentRecords = allRecords.slice(0, Math.min(500, totalLen)).map(item => {
+      if (item && item.created_at) item._t = Date.parse(item.created_at);
+      return item;
+    });
+  }
+
+  // Fast numeric sort
+  recentRecords.sort((a, b) => (b._t || 0) - (a._t || 0));
 
   return res.status(200).json({
     status: true,
     device: rawPayload.device,
-    data: fiveDayRecords,
+    data: recentRecords,
     total_count: totalLen,
-    five_day_count: fiveDayRecords.length
+    five_day_count: recentRecords.length
   });
 }
