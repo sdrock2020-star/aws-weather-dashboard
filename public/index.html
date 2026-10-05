@@ -1,517 +1,476 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Automated Weather Station (AWS) Dashboard - ICAR-IIWM</title>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Automated Weather Station (AWS) Dashboard - ICAR-IIWM</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-    };
-  </script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      };
+    </script>
 
-  <!-- React 18 & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React 18 & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  <!-- Babel Standalone (JSX Transformer) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel Standalone (JSX Transformer) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.98); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .animate-fade-in {
-      animation: fadeIn 0.15s ease-out forwards;
-    }
-  </style>
-</head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors antialiased">
-  
-  <div id="root"></div>
-
-  <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
-
-    const STATIONS = [
-      { id: "farm", name: "IIWM FARM MENDHASAL" },
-      { id: "main", name: "IIWM CAMPUS BHUBANESWAR" }
-    ];
-
-    const clientStationCache = {
-      farm: null,
-      main: null
-    };
-
-    // In-memory cache for full historical dataset to make all date ranges instant
-    const fullHistoryCache = {
-      farm: null,
-      main: null
-    };
-
-    const STATION_PARAMS_INFO = {
-      farm: {
-        name: "IIWM FARM MENDHASAL",
-        count: 15,
-        params: [
-          { name: "Temperature", unit: "°C" },
-          { name: "Humidity", unit: "%" },
-          { name: "Rainfall", unit: "mm" },
-          { name: "Air Pressure", unit: "Kpa" },
-          { name: "Wind Velocity", unit: "m/s" },
-          { name: "Solar Radiation", unit: "w/m²" },
-          { name: "Sunshine Hours", unit: "h" },
-          { name: "Soil Humidity", unit: "%" },
-          { name: "Soil Temperature", unit: "°C" },
-          { name: "CO2 Level", unit: "PPM" },
-          { name: "Illumination / Lux", unit: "LUX" },
-          { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
-          { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
-          { name: "Battery Working Level", unit: "mV" },
-          { name: "Solar Panel Voltage", unit: "mV" }
-        ]
-      },
-      main: {
-        name: "IIWM CAMPUS BHUBANESWAR",
-        count: 16,
-        params: [
-          { name: "Temperature", unit: "°C" },
-          { name: "Humidity", unit: "%" },
-          { name: "Rainfall", unit: "mm" },
-          { name: "Air Pressure", unit: "Kpa" },
-          { name: "Wind Velocity", unit: "m/s" },
-          { name: "Wind Direction", unit: "°"},
-          { name: "Solar Radiation", unit: "w/m²" },
-          { name: "Sunshine Hours", unit: "h" },
-          { name: "Soil Humidity", unit: "%" },
-          { name: "Soil Temperature", unit: "°C" },
-          { name: "CO2 Level", unit: "PPM" },
-          { name: "Illumination / Lux", unit: "LUX" },
-          { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
-          { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
-          { name: "Battery Working Level", unit: "mV" },
-          { name: "Solar Panel Voltage", unit: "mV" }
-        ]
+    <style>
+      @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
       }
-    };
+      .animate-fade-in {
+        animation: fadeIn 0.15s ease-out forwards;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors antialiased">
+    
+    <div id="root"></div>
 
-    function formatTimestamp(str) {
-      if (!str || typeof str !== "string") return "--";
-      const parts = str.trim().split(/[\sT]+/);
-      if (parts.length >= 2) {
-        const dateParts = parts[0].split("-");
-        if (dateParts.length === 3) {
-          const [year, month, day] = dateParts;
-          const time = parts[1].slice(0, 8);
-          return `${day}-${month}-${year} ${time}`;
+    <script type="text/babel">
+      const { useState, useEffect, useMemo } = React;
+
+      const STATIONS = [
+        { id: "farm", name: "IIWM FARM MENDHASAL" },
+        { id: "main", name: "IIWM CAMPUS BHUBANESWAR" }
+      ];
+
+      const clientStationCache = {
+        farm: null,
+        main: null
+      };
+
+      // In-memory cache for full historical dataset to make all date ranges instant
+      const fullHistoryCache = {
+        farm: null,
+        main: null
+      };
+
+      const STATION_PARAMS_INFO = {
+        farm: {
+          name: "IIWM FARM MENDHASAL",
+          count: 15,
+          params: [
+            { name: "Temperature", unit: "°C" },
+            { name: "Humidity", unit: "%" },
+            { name: "Rainfall", unit: "mm" },
+            { name: "Air Pressure", unit: "Kpa" },
+            { name: "Wind Velocity", unit: "m/s" },
+            { name: "Solar Radiation", unit: "w/m²" },
+            { name: "Sunshine Hours", unit: "h" },
+            { name: "Soil Humidity", unit: "%" },
+            { name: "Soil Temperature", unit: "°C" },
+            { name: "CO2 Level", unit: "PPM" },
+            { name: "Illumination / Lux", unit: "LUX" },
+            { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+            { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
+            { name: "Battery Working Level", unit: "mV" },
+            { name: "Solar Panel Voltage", unit: "mV" }
+          ]
+        },
+        main: {
+          name: "IIWM CAMPUS BHUBANESWAR",
+          count: 16,
+          params: [
+            { name: "Temperature", unit: "°C" },
+            { name: "Humidity", unit: "%" },
+            { name: "Rainfall", unit: "mm" },
+            { name: "Air Pressure", unit: "Kpa" },
+            { name: "Wind Velocity", unit: "m/s" },
+            { name: "Wind Direction", unit: "°"},
+            { name: "Solar Radiation", unit: "w/m²" },
+            { name: "Sunshine Hours", unit: "h" },
+            { name: "Soil Humidity", unit: "%" },
+            { name: "Soil Temperature", unit: "°C" },
+            { name: "CO2 Level", unit: "PPM" },
+            { name: "Illumination / Lux", unit: "LUX" },
+            { name: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+            { name: "Particulate Matter (PM 10)", unit: "ug/m³" },
+            { name: "Battery Working Level", unit: "mV" },
+            { name: "Solar Panel Voltage", unit: "mV" }
+          ]
         }
-      }
-      return str;
-    }
+      };
 
-    function getAqiBadge(type, rawVal) {
-      if (rawVal === undefined || rawVal === null) return null;
-      const val = parseFloat(rawVal);
-      if (isNaN(val)) return null;
-
-      if (type === "pm25") {
-        if (val <= 30) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
-        if (val <= 60) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
-        if (val <= 90) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
-        if (val <= 120) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
-        if (val <= 250) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
-        return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+      function formatTimestamp(str) {
+        if (!str || typeof str !== "string") return "--";
+        const parts = str.trim().split(/[\sT]+/);
+        if (parts.length >= 2) {
+          const dateParts = parts[0].split("-");
+          if (dateParts.length === 3) {
+            const [year, month, day] = dateParts;
+            const time = parts[1].slice(0, 8);
+            return `${day}-${month}-${year} ${time}`;
+          }
+        }
+        return str;
       }
 
-      if (type === "pm10") {
-        if (val <= 50) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
-        if (val <= 100) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
-        if (val <= 250) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
-        if (val <= 350) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
-        if (val <= 430) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
-        return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+      function getAqiBadge(type, rawVal) {
+        if (rawVal === undefined || rawVal === null) return null;
+        const val = parseFloat(rawVal);
+        if (isNaN(val)) return null;
+
+        if (type === "pm25") {
+          if (val <= 30) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
+          if (val <= 60) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
+          if (val <= 90) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
+          if (val <= 120) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
+          if (val <= 250) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
+          return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+        }
+
+        if (type === "pm10") {
+          if (val <= 50) return { label: "Good", bg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
+          if (val <= 100) return { label: "Satisfactory", bg: "bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30" };
+          if (val <= 250) return { label: "Moderate", bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" };
+          if (val <= 350) return { label: "Poor", bg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30" };
+          if (val <= 430) return { label: "Very Poor", bg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30" };
+          return { label: "Severe", bg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30" };
+        }
+
+        return null;
       }
 
-      return null;
-    }
-
-    function MetricCard({ title, value, unit, icon, color, timestamp, isStale, badge, isDropped }) {
-      const displayUnit = unit === "?" ? "°C" : (unit || "");
-      return (
-        <div className={`bg-white dark:bg-slate-900/80 border rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between transition ${
-          isDropped 
-            ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5"
-            : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-        }`}><div className="flex items-center justify-between mb-2"><span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">
-              {title}
-            </span><div className={`p-1.5 sm:p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center flex-shrink-0`}><i data-lucide={icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4"></i></div></div><div><div className="flex items-baseline space-x-1.5 flex-wrap"><span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {isDropped ? "Offline" : (value ?? "--")}
-              </span>
-              {!isDropped &&<span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
-            </div><div className="mt-2 flex items-center justify-between flex-wrap gap-1">
-              {timestamp ? (
-                <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono"><i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
-                </p>
-              ) : <div></div>}
-              {badge && (
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.bg}`}>
-                  {badge.label}
+      function MetricCard({ title, value, unit, icon, color, timestamp, isStale, badge, isDropped }) {
+        const displayUnit = unit === "?" ? "°C" : (unit || "");
+        return (
+          <div className={`bg-white dark:bg-slate-900/80 border rounded-2xl p-3.5 sm:p-4 shadow-sm dark:shadow-lg flex flex-col justify-between transition ${
+            isDropped 
+              ? "border-dashed border-rose-300 dark:border-rose-900/40 bg-rose-500/5"
+              : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+          }`}><div className="flex items-center justify-between mb-2"><span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate pr-1">
+                {title}
+              </span><div className={`p-1.5 sm:p-2 rounded-xl ${color} bg-opacity-20 text-white flex items-center justify-center flex-shrink-0`}><i data-lucide={icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4"></i></div></div><div><div className="flex items-baseline space-x-1.5 flex-wrap"><span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {isDropped ? "Offline" : (value ?? "--")}
                 </span>
-              )}
-              {isStale && !isDropped && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                  Stale
-                </span>
-              )}
-            </div></div></div>
-      );
-    }
-
-    const TELEMETRY_COLUMNS = [
-      { key: "temperature", label: "Temperature", unit: "°C" },
-      { key: "humidity", label: "Humidity", unit: "%" },
-      { key: "rainfall", label: "Rainfall", unit: "mm" },
-      { key: "air_pressure", label: "Air Pressure", unit: "Kpa" },
-      { key: "wind_velocity", label: "Wind Velocity", unit: "m/s" },
-      { key: "wind_direction", label: "Wind Direction", unit: "°", campusOnly: true },
-      { key: "solar_radiation", label: "Solar Radiation", unit: "w/m²" },
-      { key: "sunshine_hours", label: "Sunshine Hours", unit: "h" },
-      { key: "soil_humidity", label: "Soil Humidity", unit: "%" },
-      { key: "soil_temperature", label: "Soil Temp", unit: "°C" },
-      { key: "co2", label: "CO2 Level", unit: "PPM" },
-      { key: "illumination", label: "Illumination / Lux", unit: "LUX" },
-      { key: "pm25", label: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
-      { key: "pm10", label: "Particulate Matter (PM 10)", unit: "ug/m³" },
-      { key: "battery_level", label: "Battery Working Level", unit: "mV" },
-      { key: "solar_panel_voltage", label: "Solar Panel Voltage", unit: "mV" }
-    ];
-
-    function App() {
-      const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
-      const [selectedDate, setSelectedDate] = useState("");
-      const [startDate, setStartDate] = useState("");
-      const [endDate, setEndDate] = useState("");
-      const [selectedParam, setSelectedParam] = useState("all");
-      
-      const [cardData, setCardData] = useState(() => {
-        try {
-          const cached = localStorage.getItem(`aws_cache_${STATIONS[0].id}`);
-          return cached ? JSON.parse(cached) : null;
-        } catch (e) {
-          return null;
-        }
-      });
-
-      const [loading, setLoading] = useState(false);
-      const [error, setError] = useState(null);
-      const [lastRefreshed, setLastRefreshed] = useState(null);
-
-      const [showDiag, setShowDiag] = useState(false);
-      const [showParamModal, setShowParamModal] = useState(false);
-      const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-      const [showTelemetry, setShowTelemetry] = useState(false);
-      const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
-      const [isFullHistoryLoaded, setIsFullHistoryLoaded] = useState(false);
-      const [loadingLogs, setLoadingLogs] = useState(false);
-      const [downloadingCSV, setDownloadingCSV] = useState(false);
-
-      const [feedbackName, setFeedbackName] = useState("");
-      const [feedbackDesignation, setFeedbackDesignation] = useState("");
-      const [feedbackStation, setFeedbackStation] = useState("Both / General");
-      const [feedbackParam, setFeedbackParam] = useState("");
-      const [feedbackDesc, setFeedbackDesc] = useState("");
-      const [feedbackImageName, setFeedbackImageName] = useState("");
-      const [feedbackImagePreview, setFeedbackImagePreview] = useState(null);
-
-      const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
-
-      useEffect(() => {
-        if (darkMode) {
-          document.documentElement.classList.add('dark');
-          localStorage.setItem('theme', 'dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-          localStorage.setItem('theme', 'light');
-        }
-      }, [darkMode]);
-
-      const loadStationSnapshot = async (stationId, isBackground = false) => {
-        if (clientStationCache[stationId]) {
-          setCardData(clientStationCache[stationId]);
-        } else {
-          try {
-            const localSaved = localStorage.getItem(`aws_cache_${stationId}`);
-            if (localSaved) {
-              const parsed = JSON.parse(localSaved);
-              clientStationCache[stationId] = parsed;
-              setCardData(parsed);
-            }
-          } catch (e) {}
-        }
-
-        try {
-          const res = await fetch(`/api/weather?station=${stationId}&mode=latest`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const resData = await res.json();
-          if (resData && resData.status) {
-            clientStationCache[stationId] = resData;
-            localStorage.setItem(`aws_cache_${stationId}`, JSON.stringify(resData));
-            if (selectedStation.id === stationId) {
-              setCardData(resData);
-              setLastRefreshed(new Date().toLocaleTimeString());
-            }
-          }
-        } catch (err) {
-          if (!isBackground) setError(err.message);
-        } finally {
-          if (!isBackground) setLoading(false);
-        }
-      };
-
-      // Loads initial recent 5 days for speed
-      const fetchRecentLogs = async (stationId) => {
-        setLoadingLogs(true);
-        try {
-          const res = await fetch(`/api/weather?station=${stationId}&mode=recent`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const resData = await res.json();
-          if (resData && resData.status && Array.isArray(resData.data)) {
-            setFiveDaysLogs(resData.data);
-            setIsFullHistoryLoaded(false);
-          }
-        } catch (err) {
-          console.error("Recent telemetry error:", err);
-        } finally {
-          setLoadingLogs(false);
-        }
-      };
-
-      // Loads full history on demand when user picks a custom date range
-      const fetchFullHistoricalLogs = async (stationId) => {
-        if (fullHistoryCache[stationId]) {
-          setFiveDaysLogs(fullHistoryCache[stationId]);
-          setIsFullHistoryLoaded(true);
-          return;
-        }
-
-        setLoadingLogs(true);
-        try {
-          const res = await fetch(`/api/weather?station=${stationId}&mode=csv`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const resData = await res.json();
-          if (resData && Array.isArray(resData.data)) {
-            fullHistoryCache[stationId] = resData.data;
-            setFiveDaysLogs(resData.data);
-            setIsFullHistoryLoaded(true);
-          }
-        } catch (err) {
-          console.error("Full history fetch error:", err);
-        } finally {
-          setLoadingLogs(false);
-        }
-      };
-
-      // Station Change Effect
-      useEffect(() => {
-        loadStationSnapshot(selectedStation.id, false);
-        setFiveDaysLogs([]);
-        setSelectedDate("");
-        setStartDate("");     
-        setEndDate("");        
-        setSelectedParam("all");
-        setIsFullHistoryLoaded(false);
-
-        if (showTelemetry) {
-          fetchRecentLogs(selectedStation.id);
-        }
-
-        const otherStation = STATIONS.find(s => s.id !== selectedStation.id);
-        let timer = null;
-        if (otherStation && !clientStationCache[otherStation.id]) {
-          timer = setTimeout(() => loadStationSnapshot(otherStation.id, true), 300);
-        }
-        return () => { if (timer) clearTimeout(timer); };
-      }, [selectedStation.id]);
-
-      // Detects when user chooses custom date range and pulls historical records
-      useEffect(() => {
-        if (!showTelemetry) return;
-
-        if (startDate || endDate) {
-          // Fetch full database if not already loaded into memory
-          if (!isFullHistoryLoaded) {
-            fetchFullHistoricalLogs(selectedStation.id);
-          }
-        }
-      }, [startDate, endDate, showTelemetry, selectedStation.id, isFullHistoryLoaded]);
-
-      const handleStationSwitch = (station) => {
-        if (selectedStation.id === station.id) return;
-        if (clientStationCache[station.id]) {
-          setCardData(clientStationCache[station.id]);
-        }
-        setSelectedStation(station);
-      };
-
-      useEffect(() => {
-        const t = setTimeout(() => {
-          try {
-            if (window.lucide && typeof window.lucide.createIcons === 'function') {
-              window.lucide.createIcons();
-            }
-          } catch (e) {
-            console.warn("Lucide render suppressed", e);
-          }
-        }, 50);
-        return () => clearTimeout(t);
-      }, [cardData, loading, showTelemetry, showDiag, showParamModal, showFeedbackModal, darkMode, feedbackImagePreview, selectedParam]);
-
-      const latestMetrics = useMemo(() => {
-        if (!cardData || !Array.isArray(cardData.data)) return {};
-        const map = {};
-        for (let i = 0; i < cardData.data.length; i++) {
-          const item = cardData.data[i];
-          if (!item) continue;
-          const key = String(item.data_class || item.name || "").toLowerCase().trim();
-          if (key) map[key] = item;
-        }
-        return map;
-      }, [cardData]);
-
-      const newestTimestamp = useMemo(() => {
-        const values = Object.values(latestMetrics);
-        if (!values.length) return null;
-        const times = values
-          .map(v => v.created_at ? new Date(v.created_at).getTime() : 0)
-          .filter(t => !isNaN(t) && t > 0);
-        return times.length ? Math.max(...times) : null;
-      }, [latestMetrics]);
-
-      const checkStale = (timestamp) => {
-        if (!timestamp || !newestTimestamp) return false;
-        const t = new Date(timestamp).getTime();
-        return !isNaN(t) && (newestTimestamp - t) > 6 * 3600 * 1000;
-      };
-
-      const diagnostics = useMemo(() => {
-        const batteryRaw = latestMetrics["battery_level"]?.value;
-        const batteryMv = parseFloat(batteryRaw);
-        const isLowBattery = !isNaN(batteryMv) && batteryMv < 11800;
-        const isTelemetryOffline = newestTimestamp ? (Date.now() - newestTimestamp) > 12 * 3600 * 1000 : false;
-        
-        const monitoredList = [
-          "temperature", "rainfall", "humidity", "air_pressure", 
-          "wind_velocity", "solar_radiation", "sunshine_hours", 
-          "soil_humidity", "soil_temperature", "co2", "illumination", 
-          "pm25", "pm10", "battery_level", "solar_panel_voltage"
-        ];
-        
-        const dropped = [];
-        for (let i = 0; i < monitoredList.length; i++) {
-          const k = monitoredList[i];
-          const entry = latestMetrics[k];
-          if (!entry || entry.value === null || entry.value === undefined || entry.value === "") {
-            dropped.push(k);
-          }
-        }
-
-        return {
-          isLowBattery,
-          batteryMv,
-          isTelemetryOffline,
-          droppedSensors: dropped,
-          healthy: !isLowBattery && !isTelemetryOffline && dropped.length === 0
-        };
-      }, [latestMetrics, newestTimestamp]);
-
-      const availableDates = useMemo(() => {
-        if (!Array.isArray(fiveDaysLogs) || !fiveDaysLogs.length) return [];
-        const set = new Set();
-        for (let i = 0; i < fiveDaysLogs.length; i++) {
-          const d = fiveDaysLogs[i];
-          if (d && typeof d.created_at === 'string' && d.created_at.length >= 10) {
-            set.add(d.created_at.substring(0, 10));
-          }
-        }
-        return Array.from(set).sort().reverse();
-      }, [fiveDaysLogs]);
-
-      const filteredLogs = useMemo(() => {
-        if (!Array.isArray(fiveDaysLogs)) return [];
-        
-        return fiveDaysLogs.filter(i => {
-          if (!i || typeof i.created_at !== 'string' || i.created_at.length < 10) return false;
-          const itemDateStr = i.created_at.substring(0, 10);
-
-          if (selectedDate && itemDateStr !== selectedDate) {
-            return false;
-          }
-          if (startDate && itemDateStr < startDate) {
-            return false;
-          }
-          if (endDate && itemDateStr > endDate) {
-            return false;
-          }
-
-          return true;
-        });
-      }, [fiveDaysLogs, selectedDate, startDate, endDate]);
-
-      const pivotedTelemetryRows = useMemo(() => {
-        if (!Array.isArray(filteredLogs) || !filteredLogs.length) return [];
-        
-        const rowMap = new Map();
-
-        for (let i = 0; i < filteredLogs.length; i++) {
-          const item = filteredLogs[i];
-          if (!item || !item.created_at) continue;
-
-          const timeKey = item.created_at;
-          if (!rowMap.has(timeKey)) {
-            rowMap.set(timeKey, { timestamp: timeKey });
-          }
-
-          const row = rowMap.get(timeKey);
-          const metricKey = String(item.data_class || item.name || "").toLowerCase().trim();
-          row[metricKey] = item.value;
-        }
-
-        return Array.from(rowMap.values()).sort(
-          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+                {!isDropped &&<span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{displayUnit}</span>}
+              </div><div className="mt-2 flex items-center justify-between flex-wrap gap-1">
+                {timestamp ? (
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 truncate font-mono"><i data-lucide="clock" className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0"></i> {formatTimestamp(timestamp)}
+                  </p>
+                ) : <div></div>}
+                {badge && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${badge.bg}`}>
+                    {badge.label}
+                  </span>
+                )}
+                {isStale && !isDropped && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    Stale
+                  </span>
+                )}
+              </div></div></div>
         );
-      }, [filteredLogs]);
+      }
 
-      const activeColumns = useMemo(() => {
-        return TELEMETRY_COLUMNS.filter(col => {
-          if (col.campusOnly && selectedStation.id !== "main") return false;
-          if (selectedParam !== "all" && col.key !== selectedParam) return false;
-          return true;
+      const TELEMETRY_COLUMNS = [
+        { key: "temperature", label: "Temperature", unit: "°C" },
+        { key: "humidity", label: "Humidity", unit: "%" },
+        { key: "rainfall", label: "Rainfall", unit: "mm" },
+        { key: "air_pressure", label: "Air Pressure", unit: "Kpa" },
+        { key: "wind_velocity", label: "Wind Velocity", unit: "m/s" },
+        { key: "wind_direction", label: "Wind Direction", unit: "°", campusOnly: true },
+        { key: "solar_radiation", label: "Solar Radiation", unit: "w/m²" },
+        { key: "sunshine_hours", label: "Sunshine Hours", unit: "h" },
+        { key: "soil_humidity", label: "Soil Humidity", unit: "%" },
+        { key: "soil_temperature", label: "Soil Temp", unit: "°C" },
+        { key: "co2", label: "CO2 Level", unit: "PPM" },
+        { key: "illumination", label: "Illumination / Lux", unit: "LUX" },
+        { key: "pm25", label: "Particulate Matter (PM 2.5)", unit: "ug/m³" },
+        { key: "pm10", label: "Particulate Matter (PM 10)", unit: "ug/m³" },
+        { key: "battery_level", label: "Battery Working Level", unit: "mV" },
+        { key: "solar_panel_voltage", label: "Solar Panel Voltage", unit: "mV" }
+      ];
+
+      function App() {
+        const [selectedStation, setSelectedStation] = useState(STATIONS[0]);
+        const [selectedDate, setSelectedDate] = useState("");
+        const [startDate, setStartDate] = useState("");
+        const [endDate, setEndDate] = useState("");
+        const [selectedParam, setSelectedParam] = useState("all");
+        
+        const [cardData, setCardData] = useState(() => {
+          try {
+            const cached = localStorage.getItem(`aws_cache_${STATIONS[0].id}`);
+            return cached ? JSON.parse(cached) : null;
+          } catch (e) {
+            return null;
+          }
         });
-      }, [selectedStation.id, selectedParam]);
 
-      const handleDownloadFullCSV = async () => {
-        setDownloadingCSV(true);
-        try {
-          const res = await fetch(`/api/weather?station=${selectedStation.id}&mode=csv`);
-          const resData = await res.json();
-          const allRecords = resData.data || [];
-          if (!allRecords.length) return alert("No records available to export.");
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
+        const [lastRefreshed, setLastRefreshed] = useState(null);
 
-          const colsToExport = TELEMETRY_COLUMNS.filter(col => {
-            if (col.campusOnly && selectedStation.id !== "main") return false;
+        const [showDiag, setShowDiag] = useState(false);
+        const [showParamModal, setShowParamModal] = useState(false);
+        const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+        const [showTelemetry, setShowTelemetry] = useState(false);
+        const [fiveDaysLogs, setFiveDaysLogs] = useState([]);
+        const [isFullHistoryLoaded, setIsFullHistoryLoaded] = useState(false);
+        const [loadingLogs, setLoadingLogs] = useState(false);
+        const [downloadingCSV, setDownloadingCSV] = useState(false);
+
+        const [feedbackName, setFeedbackName] = useState("");
+        const [feedbackDesignation, setFeedbackDesignation] = useState("");
+        const [feedbackStation, setFeedbackStation] = useState("Both / General");
+        const [feedbackParam, setFeedbackParam] = useState("");
+        const [feedbackDesc, setFeedbackDesc] = useState("");
+        const [feedbackImageName, setFeedbackImageName] = useState("");
+        const [feedbackImagePreview, setFeedbackImagePreview] = useState(null);
+
+        const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
+
+        useEffect(() => {
+          if (darkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+          }
+        }, [darkMode]);
+
+        const loadStationSnapshot = async (stationId, isBackground = false) => {
+          if (clientStationCache[stationId]) {
+            setCardData(clientStationCache[stationId]);
+          } else {
+            try {
+              const localSaved = localStorage.getItem(`aws_cache_${stationId}`);
+              if (localSaved) {
+                const parsed = JSON.parse(localSaved);
+                clientStationCache[stationId] = parsed;
+                setCardData(parsed);
+              }
+            } catch (e) {}
+          }
+
+          try {
+            const res = await fetch(`/api/weather?station=${stationId}&mode=latest`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const resData = await res.json();
+            if (resData && resData.status) {
+              clientStationCache[stationId] = resData;
+              localStorage.setItem(`aws_cache_${stationId}`, JSON.stringify(resData));
+              if (selectedStation.id === stationId) {
+                setCardData(resData);
+                setLastRefreshed(new Date().toLocaleTimeString());
+              }
+            }
+          } catch (err) {
+            if (!isBackground) setError(err.message);
+          } finally {
+            if (!isBackground) setLoading(false);
+          }
+        };
+
+        // Loads initial recent 5 days for speed
+        const fetchRecentLogs = async (stationId) => {
+          setLoadingLogs(true);
+          try {
+            const res = await fetch(`/api/weather?station=${stationId}&mode=recent`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const resData = await res.json();
+            if (resData && resData.status && Array.isArray(resData.data)) {
+              setFiveDaysLogs(resData.data);
+              setIsFullHistoryLoaded(false);
+            }
+          } catch (err) {
+            console.error("Recent telemetry error:", err);
+          } finally {
+            setLoadingLogs(false);
+          }
+        };
+
+        // Loads full history on demand when user picks a custom date range
+        const fetchFullHistoricalLogs = async (stationId) => {
+          if (fullHistoryCache[stationId]) {
+            setFiveDaysLogs(fullHistoryCache[stationId]);
+            setIsFullHistoryLoaded(true);
+            return;
+          }
+
+          setLoadingLogs(true);
+          try {
+            const res = await fetch(`/api/weather?station=${stationId}&mode=csv`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const resData = await res.json();
+            if (resData && Array.isArray(resData.data)) {
+              fullHistoryCache[stationId] = resData.data;
+              setFiveDaysLogs(resData.data);
+              setIsFullHistoryLoaded(true);
+            }
+          } catch (err) {
+            console.error("Full history fetch error:", err);
+          } finally {
+            setLoadingLogs(false);
+          }
+        };
+
+        // Station Change Effect
+        useEffect(() => {
+          loadStationSnapshot(selectedStation.id, false);
+          setFiveDaysLogs([]);
+          setSelectedDate("");
+          setStartDate("");     
+          setEndDate("");        
+          setSelectedParam("all");
+          setIsFullHistoryLoaded(false);
+
+          if (showTelemetry) {
+            fetchRecentLogs(selectedStation.id);
+          }
+
+          const otherStation = STATIONS.find(s => s.id !== selectedStation.id);
+          let timer = null;
+          if (otherStation && !clientStationCache[otherStation.id]) {
+            timer = setTimeout(() => loadStationSnapshot(otherStation.id, true), 300);
+          }
+          return () => { if (timer) clearTimeout(timer); };
+        }, [selectedStation.id]);
+
+        // Detects when user chooses custom date range and pulls historical records
+        useEffect(() => {
+          if (!showTelemetry) return;
+
+          if (startDate || endDate) {
+            // Fetch full database if not already loaded into memory
+            if (!isFullHistoryLoaded) {
+              fetchFullHistoricalLogs(selectedStation.id);
+            }
+          }
+        }, [startDate, endDate, showTelemetry, selectedStation.id, isFullHistoryLoaded]);
+
+        const handleStationSwitch = (station) => {
+          if (selectedStation.id === station.id) return;
+          if (clientStationCache[station.id]) {
+            setCardData(clientStationCache[station.id]);
+          }
+          setSelectedStation(station);
+        };
+
+        useEffect(() => {
+          const t = setTimeout(() => {
+            try {
+              if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+              }
+            } catch (e) {
+              console.warn("Lucide render suppressed", e);
+            }
+          }, 50);
+          return () => clearTimeout(t);
+        }, [cardData, loading, showTelemetry, showDiag, showParamModal, showFeedbackModal, darkMode, feedbackImagePreview, selectedParam]);
+
+        const latestMetrics = useMemo(() => {
+          if (!cardData || !Array.isArray(cardData.data)) return {};
+          const map = {};
+          for (let i = 0; i < cardData.data.length; i++) {
+            const item = cardData.data[i];
+            if (!item) continue;
+            const key = String(item.data_class || item.name || "").toLowerCase().trim();
+            if (key) map[key] = item;
+          }
+          return map;
+        }, [cardData]);
+
+        const newestTimestamp = useMemo(() => {
+          const values = Object.values(latestMetrics);
+          if (!values.length) return null;
+          const times = values
+            .map(v => v.created_at ? new Date(v.created_at).getTime() : 0)
+            .filter(t => !isNaN(t) && t > 0);
+          return times.length ? Math.max(...times) : null;
+        }, [latestMetrics]);
+
+        const checkStale = (timestamp) => {
+          if (!timestamp || !newestTimestamp) return false;
+          const t = new Date(timestamp).getTime();
+          return !isNaN(t) && (newestTimestamp - t) > 6 * 3600 * 1000;
+        };
+
+        const diagnostics = useMemo(() => {
+          const batteryRaw = latestMetrics["battery_level"]?.value;
+          const batteryMv = parseFloat(batteryRaw);
+          const isLowBattery = !isNaN(batteryMv) && batteryMv < 11800;
+          const isTelemetryOffline = newestTimestamp ? (Date.now() - newestTimestamp) > 12 * 3600 * 1000 : false;
+          
+          const monitoredList = [
+            "temperature", "rainfall", "humidity", "air_pressure", 
+            "wind_velocity", "solar_radiation", "sunshine_hours", 
+            "soil_humidity", "soil_temperature", "co2", "illumination", 
+            "pm25", "pm10", "battery_level", "solar_panel_voltage"
+          ];
+          
+          const dropped = [];
+          for (let i = 0; i < monitoredList.length; i++) {
+            const k = monitoredList[i];
+            const entry = latestMetrics[k];
+            if (!entry || entry.value === null || entry.value === undefined || entry.value === "") {
+              dropped.push(k);
+            }
+          }
+
+          return {
+            isLowBattery,
+            batteryMv,
+            isTelemetryOffline,
+            droppedSensors: dropped,
+            healthy: !isLowBattery && !isTelemetryOffline && dropped.length === 0
+          };
+        }, [latestMetrics, newestTimestamp]);
+
+        const availableDates = useMemo(() => {
+          if (!Array.isArray(fiveDaysLogs) || !fiveDaysLogs.length) return [];
+          const set = new Set();
+          for (let i = 0; i < fiveDaysLogs.length; i++) {
+            const d = fiveDaysLogs[i];
+            if (d && typeof d.created_at === 'string' && d.created_at.length >= 10) {
+              set.add(d.created_at.substring(0, 10));
+            }
+          }
+          return Array.from(set).sort().reverse();
+        }, [fiveDaysLogs]);
+
+        const filteredLogs = useMemo(() => {
+          if (!Array.isArray(fiveDaysLogs)) return [];
+          
+          return fiveDaysLogs.filter(i => {
+            if (!i || typeof i.created_at !== 'string' || i.created_at.length < 10) return false;
+            const itemDateStr = i.created_at.substring(0, 10);
+
+            if (selectedDate && itemDateStr !== selectedDate) {
+              return false;
+            }
+            if (startDate && itemDateStr < startDate) {
+              return false;
+            }
+            if (endDate && itemDateStr > endDate) {
+              return false;
+            }
+
             return true;
           });
+        }, [fiveDaysLogs, selectedDate, startDate, endDate]);
 
+        const pivotedTelemetryRows = useMemo(() => {
+          if (!Array.isArray(filteredLogs) || !filteredLogs.length) return [];
+          
           const rowMap = new Map();
-          for (let i = 0; i < allRecords.length; i++) {
-            const item = allRecords[i];
+
+          for (let i = 0; i < filteredLogs.length; i++) {
+            const item = filteredLogs[i];
             if (!item || !item.created_at) continue;
 
             const timeKey = item.created_at;
@@ -524,878 +483,918 @@
             row[metricKey] = item.value;
           }
 
-          const sortedRows = Array.from(rowMap.values()).sort(
+          return Array.from(rowMap.values()).sort(
             (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
           );
+        }, [filteredLogs]);
 
-          const headers = [
-            "Station",
-            "Observed Date & Time",
-            ...colsToExport.map(c => `"${c.label} (${c.unit})"`)
-          ];
+        const activeColumns = useMemo(() => {
+          return TELEMETRY_COLUMNS.filter(col => {
+            if (col.campusOnly && selectedStation.id !== "main") return false;
+            if (selectedParam !== "all" && col.key !== selectedParam) return false;
+            return true;
+          });
+        }, [selectedStation.id, selectedParam]);
 
-          const rows = sortedRows.map(row => {
+        const handleDownloadFullCSV = async () => {
+          setDownloadingCSV(true);
+          try {
+            const res = await fetch(`/api/weather?station=${selectedStation.id}&mode=csv`);
+            const resData = await res.json();
+            const allRecords = resData.data || [];
+            if (!allRecords.length) return alert("No records available to export.");
+
+            const colsToExport = TELEMETRY_COLUMNS.filter(col => {
+              if (col.campusOnly && selectedStation.id !== "main") return false;
+              return true;
+            });
+
+            const rowMap = new Map();
+            for (let i = 0; i < allRecords.length; i++) {
+              const item = allRecords[i];
+              if (!item || !item.created_at) continue;
+
+              const timeKey = item.created_at;
+              if (!rowMap.has(timeKey)) {
+                rowMap.set(timeKey, { timestamp: timeKey });
+              }
+
+              const row = rowMap.get(timeKey);
+              const metricKey = String(item.data_class || item.name || "").toLowerCase().trim();
+              row[metricKey] = item.value;
+            }
+
+            const sortedRows = Array.from(rowMap.values()).sort(
+              (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            const headers = [
+              "Station",
+              "Observed Date & Time",
+              ...colsToExport.map(c => `"${c.label} (${c.unit})"`)
+            ];
+
+            const rows = sortedRows.map(row => {
             const rowValues = [
-              `"${selectedStation.name}"`,
-              `"${formatTimestamp(row.timestamp)}"`,
-              ...colsToExport.map(c => {
-                const val = row[c.key];
-                return val !== undefined && val !== null && val !== "" ? `"${val}"` : '""';
-              })
+            `"${selectedStation.name}"`,
+            `="${formatTimestamp(row.timestamp)}"`,
+            ...colsToExport.map(c => {
+            const val = row[c.key];
+            return val !== undefined && val !== null && val !== "" ? `"${val}"` : '""';
+            })
             ];
             return rowValues.join(",");
-          });
+            });
+            const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+            link.href = url;
+            link.download = `AWS_${selectedStation.id}_MATRIX_${fileTimestamp}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (err) {
+            alert("CSV export failed: " + err.message);
+          } finally { 
+            setDownloadingCSV(false);
+          }
+        };
 
-          const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-          link.href = url;
-          link.download = `AWS_${selectedStation.id}_MATRIX_${fileTimestamp}.csv`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } catch (err) {
-          alert("CSV export failed: " + err.message);
-        } finally { 
-          setDownloadingCSV(false);
-        }
-      };
+        const handleImageUpload = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            setFeedbackImageName(file.name);
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+              setFeedbackImagePreview(uploadEvent.target.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
 
-      const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          setFeedbackImageName(file.name);
-          const reader = new FileReader();
-          reader.onload = (uploadEvent) => {
-            setFeedbackImagePreview(uploadEvent.target.result);
-          };
-          reader.readAsDataURL(file);
-        }
-      };
+        const handleSendFeedbackEmail = (e) => {
+          e.preventDefault();
+          if (!feedbackDesc.trim()) {
+            alert("Please provide a description of the issue or incorrect observation.");
+            return;
+          }
 
-      const handleSendFeedbackEmail = (e) => {
-        e.preventDefault();
-        if (!feedbackDesc.trim()) {
-          alert("Please provide a description of the issue or incorrect observation.");
-          return;
-        }
+          const recipientEmail = "sdrock2020@gmail.com"; 
+          const subject = encodeURIComponent(`[AWS Telemetry Issue Report] - ${feedbackStation}`);
+          
+          let bodyContent = `Automated Weather Station (AWS) - Data Feedback / Issue Report\n`;
+          bodyContent += `===========================================================\n\n`;
+          bodyContent += `Sender Name: ${feedbackName || "Not Provided"}\n`;
+          bodyContent += `Designation/Role: ${feedbackDesignation || "Not Provided"}\n`;
+          bodyContent += `Affected Station: ${feedbackStation}\n`;
+          bodyContent += `Affected Parameter: ${feedbackParam || "General / Multiple"}\n`;
+          bodyContent += `Dashboard Timestamp: ${lastRefreshed || "N/A"}\n\n`;
+          bodyContent += `Issue Description:\n-----------------\n${feedbackDesc}\n\n`;
+          if (feedbackImageName) {
+            bodyContent += `[Attachment Note]: User has prepared photo: "${feedbackImageName}". (Please attach this image file to this email if sending via your email client).\n`;
+          }
+          bodyContent += `\nSent via ICAR-IIWM AWS Telemetry Dashboard Web Portal`;
 
-        const recipientEmail = "sdrock2020@gmail.com"; 
-        const subject = encodeURIComponent(`[AWS Telemetry Issue Report] - ${feedbackStation}`);
-        
-        let bodyContent = `Automated Weather Station (AWS) - Data Feedback / Issue Report\n`;
-        bodyContent += `===========================================================\n\n`;
-        bodyContent += `Sender Name: ${feedbackName || "Not Provided"}\n`;
-        bodyContent += `Designation/Role: ${feedbackDesignation || "Not Provided"}\n`;
-        bodyContent += `Affected Station: ${feedbackStation}\n`;
-        bodyContent += `Affected Parameter: ${feedbackParam || "General / Multiple"}\n`;
-        bodyContent += `Dashboard Timestamp: ${lastRefreshed || "N/A"}\n\n`;
-        bodyContent += `Issue Description:\n-----------------\n${feedbackDesc}\n\n`;
-        if (feedbackImageName) {
-          bodyContent += `[Attachment Note]: User has prepared photo: "${feedbackImageName}". (Please attach this image file to this email if sending via your email client).\n`;
-        }
-        bodyContent += `\nSent via ICAR-IIWM AWS Telemetry Dashboard Web Portal`;
+          const mailtoLink = `mailto:${recipientEmail}?subject=${subject}&body=${encodeURIComponent(bodyContent)}`;
+          window.location.href = mailtoLink;
+          setShowFeedbackModal(false);
+        };
 
-        const mailtoLink = `mailto:${recipientEmail}?subject=${subject}&body=${encodeURIComponent(bodyContent)}`;
-        window.location.href = mailtoLink;
-        setShowFeedbackModal(false);
-      };
-
-      return (
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
-          {/* Header */}
-          <header className="pb-6 border-b border-slate-200 dark:border-slate-800">
-            <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm mb-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-grow text-left">
-                  <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-tight">
-                    ICAR - IIWM Bhubaneswar
-                  </h2>
-                  <h1 className="text-lg sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white mt-1">
-                    Automated Weather Station(AWS) Dashboard
-                  </h1>
-                  <p className="hidden sm:block text-[11px] md:text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-0.5">
-                    Indian Institute of Water Management
-                  </p>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-center">
-                  <img 
-                    src="/icar.png" 
-                    alt="ICAR Logo" 
-                    className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 object-contain drop-shadow-md"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Controls Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-              <div className="inline-flex rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-1 shadow-sm">
-                {STATIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleStationSwitch(s)}
-                    className={`px-3 py-1.5 sm:px-5 sm:py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      selectedStation.id === s.id
-                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setShowParamModal(true)}
-                  title="View Monitored Parameters for Both Stations"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition shadow-sm cursor-pointer"
-                >
-                  <i data-lucide="list-checks" className="w-3.5 h-3.5 text-emerald-500"></i>
-                  <span>Total Parameters</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setFeedbackStation(selectedStation.name);
-                    setShowFeedbackModal(true);
-                  }}
-                  title="Report Discrepancy or Incorrect Data"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition shadow-sm cursor-pointer"
-                >
-                  <i data-lucide="message-square-warning" className="w-3.5 h-3.5 text-rose-500"></i>
-                  <span>Feedback</span>
-                </button>
-                <button
-                  onClick={handleDownloadFullCSV}
-                  disabled={downloadingCSV}
-                  title="Export Entire Historical Database to CSV"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition shadow-sm disabled:opacity-50 cursor-pointer"
-                >
-                  <i data-lucide={downloadingCSV ? "refresh-cw" : "download"} className={`w-3.5 h-3.5 text-emerald-500 ${downloadingCSV ? 'animate-spin' : ''}`}></i>
-                  <span>{downloadingCSV ? "Exporting..." : "CSV"}</span>
-                </button>
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  title="Toggle Dark / Light Mode"
-                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition shadow-sm cursor-pointer"
-                >
-                  <i data-lucide={darkMode ? "sun" : "moon"} className="w-4 h-4"></i>
-                </button>
-                <button
-                  onClick={() => {
-                    loadStationSnapshot(selectedStation.id, false);
-                    if (showTelemetry) {
-                      if (startDate || endDate) {
-                        fetchFullHistoricalLogs(selectedStation.id);
-                      } else {
-                        fetchRecentLogs(selectedStation.id);
-                      }
-                    }
-                  }}
-                  disabled={loading}
-                  title="Refresh Data"
-                  className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition shadow-sm cursor-pointer"
-                >
-                  <i data-lucide="refresh-cw" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
-                </button>
-              </div>
-            </div>
-          </header>
-
-          {/* Diagnostics Alert Banner */}
-          <div className="mt-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-            <div 
-              onClick={() => setShowDiag(!showDiag)}
-              className="px-3.5 py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition select-none"
-            >
-              <div className="flex items-center gap-2.5 text-xs font-semibold flex-wrap">
-                <span className={`w-2.5 h-2.5 rounded-full ${diagnostics.healthy ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`}></span>
-                <span className="text-slate-800 dark:text-slate-200">Hardware & Link Diagnostics:</span>
-                {diagnostics.healthy ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">All Subsystems Nominal</span>
-                ) : (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {diagnostics.isLowBattery && (
-                      <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
-                        Low Battery ({diagnostics.batteryMv} mV)
-                      </span>
-                    )}
-                    {diagnostics.isTelemetryOffline && (
-                      <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded text-[10px]">
-                        Signal Delayed (&gt;12h)
-                      </span>
-                    )}
-                    {diagnostics.droppedSensors.length > 0 && (
-                      <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
-                        {diagnostics.droppedSensors.length} Sensor Dropout(s)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <span className="text-slate-400 text-xs font-bold">{showDiag ? "▲" : "▼"}</span>
-            </div>
-
-            {showDiag && (
-              <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 text-xs bg-slate-50/50 dark:bg-slate-950/40">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 block">Telemetry Stream Status</span>
-                    <strong className={diagnostics.isTelemetryOffline ? "text-amber-500" : "text-emerald-500"}>
-                      {diagnostics.isTelemetryOffline ? "Signal Inactive" : "Active Link"}
-                    </strong>
-                  </div>
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 block">Battery Working Level</span>
-                    <strong className={diagnostics.isLowBattery ? "text-rose-500" : "text-emerald-500"}>
-                      {diagnostics.batteryMv ? `${(diagnostics.batteryMv / 1000).toFixed(2)} V` : "N/A"} {diagnostics.isLowBattery ? "(Under 11.8V)" : "(Healthy)"}
-                    </strong>
-                  </div>
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 block">Offline Sensor Inputs</span>
-                    <strong className={diagnostics.droppedSensors.length ? "text-rose-500" : "text-emerald-500"}>
-                      {diagnostics.droppedSensors.length ? diagnostics.droppedSensors.join(", ") : "None (All online)"}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Telemetry Status Bar */}
-          <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2 bg-white dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></span>
-                Station: <strong className="text-slate-800 dark:text-slate-200">{selectedStation.name}</strong>
-              </span>
-            </div>
-            <div className="flex items-center justify-between sm:justify-end gap-3 text-[11px]">
-              <span>MAC: <code className="font-mono text-slate-700 dark:text-slate-300">{cardData?.device?.mac || "N/A"}</code></span>
-              <span>Updated: <strong className="text-slate-800 dark:text-slate-200">{lastRefreshed || "--"}</strong></span>
-            </div>
-          </div>
-
-          {/* Metric Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3.5 mt-5">
-            <MetricCard 
-              title="Temperature"
-              value={latestMetrics["temperature"]?.value} 
-              unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} 
-              icon="thermometer"
-              color="bg-amber-500"
-              timestamp={latestMetrics["temperature"]?.created_at} 
-              isStale={checkStale(latestMetrics["temperature"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("temperature")} 
-            />
-            <MetricCard 
-              title="Rainfall"
-              value={latestMetrics["rainfall"]?.value} 
-              unit={latestMetrics["rainfall"]?.unit || "mm"} 
-              icon="cloud-rain"
-              color="bg-blue-500"
-              timestamp={latestMetrics["rainfall"]?.created_at} 
-              isStale={checkStale(latestMetrics["rainfall"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("rainfall")} 
-            />
-            <MetricCard 
-              title="Humidity"
-              value={latestMetrics["humidity"]?.value} 
-              unit={latestMetrics["humidity"]?.unit || "%"} 
-              icon="droplets"
-              color="bg-cyan-500"
-              timestamp={latestMetrics["humidity"]?.created_at} 
-              isStale={checkStale(latestMetrics["humidity"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("humidity")} 
-            />
-            <MetricCard 
-              title="Air Pressure"
-              value={latestMetrics["air_pressure"]?.value} 
-              unit={latestMetrics["air_pressure"]?.unit || "Kpa"} 
-              icon="gauge"
-              color="bg-purple-500"
-              timestamp={latestMetrics["air_pressure"]?.created_at} 
-              isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("air_pressure")} 
-            />
-            <MetricCard 
-              title="Wind Velocity"
-              value={latestMetrics["wind_velocity"]?.value} 
-              unit={latestMetrics["wind_velocity"]?.unit || "m/s"} 
-              icon="wind"
-              color="bg-teal-500"
-              timestamp={latestMetrics["wind_velocity"]?.created_at} 
-              isStale={checkStale(latestMetrics["wind_velocity"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("wind_velocity")} 
-            />
-            
-            {latestMetrics["wind_direction"] && (
-              <MetricCard 
-                title="Wind Direction"
-                value={latestMetrics["wind_direction"]?.value} 
-                unit="°"
-                icon="compass"
-                color="bg-sky-500"
-                timestamp={latestMetrics["wind_direction"]?.created_at} 
-                isStale={checkStale(latestMetrics["wind_direction"]?.created_at)} 
-              />
-            )}
-
-            <MetricCard 
-              title="Solar Radiation"
-              value={latestMetrics["solar_radiation"]?.value} 
-              unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} 
-              icon="sun"
-              color="bg-yellow-500"
-              timestamp={latestMetrics["solar_radiation"]?.created_at} 
-              isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("solar_radiation")} 
-            />
-            <MetricCard 
-              title="Sunshine Hours"
-              value={latestMetrics["sunshine_hours"]?.value} 
-              unit={latestMetrics["sunshine_hours"]?.unit || "h"} 
-              icon="sun-medium"
-              color="bg-orange-400"
-              timestamp={latestMetrics["sunshine_hours"]?.created_at} 
-              isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("sunshine_hours")} 
-            />
-            <MetricCard 
-              title="Soil Humidity"
-              value={latestMetrics["soil_humidity"]?.value} 
-              unit={latestMetrics["soil_humidity"]?.unit || "%"} 
-              icon="sprout"
-              color="bg-emerald-600"
-              timestamp={latestMetrics["soil_humidity"]?.created_at} 
-              isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("soil_humidity")} 
-            />
-            <MetricCard 
-              title="Soil Temp"
-              value={latestMetrics["soil_temperature"]?.value} 
-              unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} 
-              icon="thermometer"
-              color="bg-lime-600"
-              timestamp={latestMetrics["soil_temperature"]?.created_at} 
-              isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("soil_temperature")} 
-            />
-            <MetricCard 
-              title="CO2 Level"
-              value={latestMetrics["co2"]?.value} 
-              unit={latestMetrics["co2"]?.unit || "PPM"} 
-              icon="cloud"
-              color="bg-indigo-500"
-              timestamp={latestMetrics["co2"]?.created_at} 
-              isStale={checkStale(latestMetrics["co2"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("co2")} 
-            />
-            <MetricCard 
-              title="Illumination"
-              value={latestMetrics["illumination"]?.value} 
-              unit={latestMetrics["illumination"]?.unit || "LUX"} 
-              icon="lightbulb"
-              color="bg-amber-400"
-              timestamp={latestMetrics["illumination"]?.created_at} 
-              isStale={checkStale(latestMetrics["illumination"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("illumination")} 
-            />
-            <MetricCard 
-              title="PM 2.5"
-              value={latestMetrics["pm25"]?.value} 
-              unit={latestMetrics["pm25"]?.unit || "ug/m³"} 
-              icon="wind"
-              color="bg-rose-400"
-              timestamp={latestMetrics["pm25"]?.created_at} 
-              isStale={checkStale(latestMetrics["pm25"]?.created_at)} 
-              badge={getAqiBadge("pm25", latestMetrics["pm25"]?.value)}
-              isDropped={diagnostics.droppedSensors.includes("pm25")} 
-            />
-            <MetricCard 
-              title="PM 10"
-              value={latestMetrics["pm10"]?.value} 
-              unit={latestMetrics["pm10"]?.unit || "ug/m³"} 
-              icon="activity"
-              color="bg-rose-500"
-              timestamp={latestMetrics["pm10"]?.created_at} 
-              isStale={checkStale(latestMetrics["pm10"]?.created_at)} 
-              badge={getAqiBadge("pm10", latestMetrics["pm10"]?.value)}
-              isDropped={diagnostics.droppedSensors.includes("pm10")} 
-            />
-            <MetricCard 
-              title="Battery"
-              value={latestMetrics["battery_level"]?.value} 
-              unit={latestMetrics["battery_level"]?.unit || "mV"} 
-              icon="battery-charging"
-              color={diagnostics.isLowBattery ? "bg-rose-500" : "bg-green-500"} 
-              timestamp={latestMetrics["battery_level"]?.created_at} 
-              isStale={checkStale(latestMetrics["battery_level"]?.created_at)} 
-              badge={diagnostics.isLowBattery ? { label: "Low", bg: "bg-rose-500/10 text-rose-500 border-rose-500/20" } : null}
-              isDropped={diagnostics.droppedSensors.includes("battery_level")} 
-            />
-            <MetricCard 
-              title="Solar Panel"
-              value={latestMetrics["solar_panel_voltage"]?.value} 
-              unit={latestMetrics["solar_panel_voltage"]?.unit || "mV"} 
-              icon="zap"
-              color="bg-amber-600"
-              timestamp={latestMetrics["solar_panel_voltage"]?.created_at} 
-              isStale={checkStale(latestMetrics["solar_panel_voltage"]?.created_at)} 
-              isDropped={diagnostics.droppedSensors.includes("solar_panel_voltage")} 
-            />
-          </div>
-
-          {/* Telemetry Tab: Matrix */}
-          <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-            <div 
-              onClick={() => {
-                const next = !showTelemetry;
-                setShowTelemetry(next);
-                if (next && fiveDaysLogs.length === 0) {
-                  if (startDate || endDate) {
-                    fetchFullHistoricalLogs(selectedStation.id);
-                  } else {
-                    fetchRecentLogs(selectedStation.id);
-                  }
-                }
-              }}
-              className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition text-left cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <i data-lucide="layers" className="w-5 h-5"></i>
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    Live Telemetry Feeds
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      {loadingLogs ? "Loading records..." : (pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs")}
-                    </span>
-                  </h2>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    {showTelemetry ? "Click to collapse telemetry table" : "Expand to view matrix breakdown across all monitored metrics"}
-                  </p>
-                </div>
-              </div>
-              <span className="text-slate-400 text-xs font-bold">{showTelemetry ? "▲" : "▼"}</span>
-            </div>
-
-            {showTelemetry && (
-              <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-3 gap-2.5">
-                  <div>
-                    <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
-                      Showing {pivotedTelemetryRows.length} recent transmissions
+        return (
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
+            {/* Header */}
+            <header className="pb-6 border-b border-slate-200 dark:border-slate-800">
+              <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm mb-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-grow text-left">
+                    <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-tight">
+                      ICAR - IIWM Bhubaneswar
+                    </h2>
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white mt-1">
+                      Automated Weather Station(AWS) Dashboard
+                    </h1>
+                    <p className="hidden sm:block text-[11px] md:text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-0.5">
+                      Indian Institute of Water Management
                     </p>
                   </div>
-                  
-                  {/* Filter Group: Parameter Filter + Single Date Dropdown + Custom Date Range */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Parameter Selector Dropdown */}
-                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
-                      <i data-lucide="sliders-horizontal" className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0"></i>
-                      <select
-                        value={selectedParam}
-                        onChange={(e) => setSelectedParam(e.target.value)}
-                        className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-                      >
-                        <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                          All Parameters ({selectedStation.id === "main" ? "16" : "15"})
-                        </option>
-                        {TELEMETRY_COLUMNS.filter(c => !(c.campusOnly && selectedStation.id !== "main")).map(col => (
-                          <option key={col.key} value={col.key} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                            {col.label} ({col.unit})
-                          </option>
-                        ))}
-                      </select>
-                      {selectedParam !== "all" && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedParam("all")}
-                          title="Show All Parameters"
-                          className="text-slate-400 hover:text-rose-500 text-xs px-0.5 font-bold cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Single Date Selector Dropdown */}
-                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
-                      <select 
-                        value={selectedDate} 
-                        onChange={(e) => {
-                          setSelectedDate(e.target.value);
-                          if (e.target.value) {
-                            setStartDate("");
-                            setEndDate("");
-                          }
-                        }}
-                        className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-                      >
-                        <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Recent Dates</option>
-                        {availableDates.map(date => {
-                          const [y, m, d] = date.split("-");
-                          const displayDate = (y && m && d) ? `${d}-${m}-${y}` : date;
-                          return (
-                            <option key={date} value={date} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                              {displayDate}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {selectedDate && (
-                        <button 
-                          type="button" 
-                          onClick={() => setSelectedDate("")} 
-                          title="Clear Date Filter" 
-                          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Custom Range: From & To Date Pickers */}
-                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
-                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                        <span>From:</span>
-                        <input 
-                          type="date" 
-                          value={startDate}
-                          max={endDate || undefined}
-                          onChange={(e) => {
-                            setStartDate(e.target.value);
-                            setSelectedDate("");
-                          }}
-                          className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-                        />
-                      </div>
-
-                      <span className="text-slate-300 dark:text-slate-700 font-bold">|</span>
-
-                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                        <span>To:</span>
-                        <input 
-                          type="date" 
-                          value={endDate}
-                          min={startDate || undefined}
-                          onChange={(e) => {
-                            setEndDate(e.target.value);
-                            setSelectedDate("");
-                          }}
-                          className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-                        />
-                      </div>
-
-                      {(startDate || endDate) && (
-                        <button 
-                          type="button" 
-                          onClick={() => { 
-                            setStartDate(""); 
-                            setEndDate(""); 
-                            fetchRecentLogs(selectedStation.id);
-                          }} 
-                          title="Clear Date Range" 
-                          className="text-xs text-rose-500 hover:text-rose-600 font-bold ml-1 cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                  <div className="flex-shrink-0 flex items-center justify-center">
+                    <img 
+                      src="/icar.png" 
+                      alt="ICAR Logo" 
+                      className="h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 object-contain drop-shadow-md"
+                    />
                   </div>
                 </div>
-
-                {loadingLogs ? (
-                  <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500">
-                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs font-medium">Fetching historical records...</span>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto max-h-[500px] border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 relative whitespace-nowrap border-collapse">
-                      <thead className="bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-sm backdrop-blur-sm">
-                        <tr className="border-b border-slate-200 dark:border-slate-700">
-                          <th className="py-3 px-4 font-bold sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 border-r border-slate-200 dark:border-slate-700 min-w-[160px]">
-                            <div>Observed Date & Time</div>
-                            <span className="text-[10px] lowercase text-slate-400 font-normal">(dd-mm-yyyy)</span>
-                          </th>
-
-                          {activeColumns.map(col => (
-                            <th key={col.key} className="py-2.5 px-3 font-semibold text-center min-w-[120px] border-r border-slate-200/60 dark:border-slate-700/60">
-                              <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
-                                {col.label}
-                              </div>
-                              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium lowercase">
-                                ({col.unit})
-                              </span>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
-                        {pivotedTelemetryRows.length > 0 ? (
-                          pivotedTelemetryRows.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-                              <td className="py-2 px-4 font-semibold text-slate-900 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
-                                {formatTimestamp(row.timestamp)}
-                              </td>
-
-                              {activeColumns.map(col => {
-                                const val = row[col.key];
-                                return (
-                                  <td key={col.key} className="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/50">
-                                    {val !== undefined && val !== null && val !== "" ? (
-                                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                                        {val}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-300 dark:text-slate-600">--</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={activeColumns.length + 1} className="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                              No records found for the selected timeframe.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </div>
-            )}
-          </div>
 
-          {/* Total Parameters Modal */}
-          {showParamModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[85vh]">
-                <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      <i data-lucide="clipboard-list" className="w-5 h-5"></i>
-                    </div>
-                    <div>
-                      <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                        AWS Monitored Parameters
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Configured sensor parameters across both stations
-                      </p>
-                    </div>
-                  </div>
+              {/* Controls Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="inline-flex rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-1 shadow-sm">
+                  {STATIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleStationSwitch(s)}
+                      className={`px-3 py-1.5 sm:px-5 sm:py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        selectedStation.id === s.id
+                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={() => setShowParamModal(false)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    onClick={() => setShowParamModal(true)}
+                    title="View Monitored Parameters for Both Stations"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition shadow-sm cursor-pointer"
                   >
-                    <i data-lucide="x" className="w-5 h-5"></i>
+                    <i data-lucide="list-checks" className="w-3.5 h-3.5 text-emerald-500"></i>
+                    <span>Total Parameters</span>
                   </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-y-auto pr-1 text-xs">
-                  <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs uppercase tracking-wider">
-                        {STATION_PARAMS_INFO.farm.name}
-                      </span>
-                      <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        {STATION_PARAMS_INFO.farm.count} Parameters
-                      </span>
-                    </div>
-                    <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
-                      {STATION_PARAMS_INFO.farm.params.map((p, idx) => (
-                        <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
-                          <span>{idx + 1}. {p.name}</span>
-                          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-                      <span className="font-bold text-sky-600 dark:text-sky-400 text-xs uppercase tracking-wider">
-                        {STATION_PARAMS_INFO.main.name}
-                      </span>
-                      <span className="text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20">
-                        {STATION_PARAMS_INFO.main.count} Parameters
-                      </span>
-                    </div>
-                    <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
-                      {STATION_PARAMS_INFO.main.params.map((p, idx) => (
-                        <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
-                          <span className={p.special ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
-                            {idx + 1}. {p.name} {p.special && "★"}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
                   <button
-                    onClick={() => setShowParamModal(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
+                    onClick={() => {
+                      setFeedbackStation(selectedStation.name);
+                      setShowFeedbackModal(true);
+                    }}
+                    title="Report Discrepancy or Incorrect Data"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition shadow-sm cursor-pointer"
                   >
-                    Close
+                    <i data-lucide="message-square-warning" className="w-3.5 h-3.5 text-rose-500"></i>
+                    <span>Feedback</span>
+                  </button>
+                  <button
+                    onClick={handleDownloadFullCSV}
+                    disabled={downloadingCSV}
+                    title="Export Entire Historical Database to CSV"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-500 transition shadow-sm disabled:opacity-50 cursor-pointer"
+                  >
+                    <i data-lucide={downloadingCSV ? "refresh-cw" : "download"} className={`w-3.5 h-3.5 text-emerald-500 ${downloadingCSV ? 'animate-spin' : ''}`}></i>
+                    <span>{downloadingCSV ? "Exporting..." : "CSV"}</span>
+                  </button>
+                  <button
+                    onClick={() => setDarkMode(!darkMode)}
+                    title="Toggle Dark / Light Mode"
+                    className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition shadow-sm cursor-pointer"
+                  >
+                    <i data-lucide={darkMode ? "sun" : "moon"} className="w-4 h-4"></i>
+                  </button>
+                  <button
+                    onClick={() => {
+                      loadStationSnapshot(selectedStation.id, false);
+                      if (showTelemetry) {
+                        if (startDate || endDate) {
+                          fetchFullHistoricalLogs(selectedStation.id);
+                        } else {
+                          fetchRecentLogs(selectedStation.id);
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                    title="Refresh Data"
+                    className="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition shadow-sm cursor-pointer"
+                  >
+                    <i data-lucide="refresh-cw" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}></i>
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            </header>
 
-          {/* Feedback & Anomaly Reporting Modal */}
-          {showFeedbackModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[90vh]">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                      <i data-lucide="message-square-warning" className="w-5 h-5"></i>
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                        Feedback
-                      </h3>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowFeedbackModal(false)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    <i data-lucide="x" className="w-5 h-5"></i>
-                  </button>
-                </div>
-                <form onSubmit={handleSendFeedbackEmail} className="mt-4 overflow-y-auto space-y-3.5 pr-1 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                        Your Name (Optional)
-                      </label>
-                      <input 
-                        type="text" 
-                        value={feedbackName}
-                        onChange={(e) => setFeedbackName(e.target.value)}
-                        placeholder="e.g., XYZ"
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                        Designation / Role (Optional)
-                      </label>
-                      <input 
-                        type="text" 
-                        value={feedbackDesignation}
-                        onChange={(e) => setFeedbackDesignation(e.target.value)}
-                        placeholder="e.g., XYZ"
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                        Select Station
-                      </label>
-                      <select
-                        value={feedbackStation}
-                        onChange={(e) => setFeedbackStation(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500"
-                      >
-                        <option value="IIWM FARM MENDHASAL">IIWM FARM MENDHASAL</option>
-                        <option value="IIWM CAMPUS BHUBANESWAR">IIWM CAMPUS BHUBANESWAR</option>
-                        <option value="Both Stations / General UI">Both Stations / Dashboard Issue</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                        Affected Metric (Optional)
-                      </label>
-                      <input 
-                        type="text" 
-                        value={feedbackParam}
-                        onChange={(e) => setFeedbackParam(e.target.value)}
-                        placeholder="e.g., Soil Humidity, Battery, PM 2.5"
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                      Description of Issue / Feedback <span className="text-rose-500">*</span>
-                    </label>
-                    <textarea 
-                      rows="3"
-                      required
-                      value={feedbackDesc}
-                      onChange={(e) => setFeedbackDesc(e.target.value)}
-                      placeholder="What the issue?"
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 resize-none"
-                    ></textarea>
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
-                      Upload Screenshot / Photo (Optional)
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 cursor-pointer text-slate-600 dark:text-slate-400 transition bg-slate-50 dark:bg-slate-950">
-                        <i data-lucide="image" className="w-4 h-4 text-emerald-500"></i>
-                        <span>{feedbackImageName ? "Change Photo" : "Choose File"}</span>
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                      </label>
-                      {feedbackImageName && (
-                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate max-w-[200px]">
-                          {feedbackImageName}
+            {/* Diagnostics Alert Banner */}
+            <div className="mt-4 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+              <div 
+                onClick={() => setShowDiag(!showDiag)}
+                className="px-3.5 py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition select-none"
+              >
+                <div className="flex items-center gap-2.5 text-xs font-semibold flex-wrap">
+                  <span className={`w-2.5 h-2.5 rounded-full ${diagnostics.healthy ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`}></span>
+                  <span className="text-slate-800 dark:text-slate-200">Hardware & Link Diagnostics:</span>
+                  {diagnostics.healthy ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">All Subsystems Nominal</span>
+                  ) : (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {diagnostics.isLowBattery && (
+                        <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
+                          Low Battery ({diagnostics.batteryMv} mV)
+                        </span>
+                      )}
+                      {diagnostics.isTelemetryOffline && (
+                        <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded text-[10px]">
+                          Signal Delayed (&gt;12h)
+                        </span>
+                      )}
+                      {diagnostics.droppedSensors.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded text-[10px]">
+                          {diagnostics.droppedSensors.length} Sensor Dropout(s)
                         </span>
                       )}
                     </div>
-                    {feedbackImagePreview && (
-                      <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <img src={feedbackImagePreview} alt="Feedback preview" className="w-full h-full object-cover" />
-                        <button 
-                          type="button" 
-                          onClick={() => { setFeedbackImageName(""); setFeedbackImagePreview(null); }}
-                          className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"
-                        >
-                          <i data-lucide="x" className="w-3 h-3"></i>
-                        </button>
-                      </div>
-                    )}
+                  )}
+                </div>
+                <span className="text-slate-400 text-xs font-bold">{showDiag ? "▲" : "▼"}</span>
+              </div>
+
+              {showDiag && (
+                <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 text-xs bg-slate-50/50 dark:bg-slate-950/40">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-slate-400 block">Telemetry Stream Status</span>
+                      <strong className={diagnostics.isTelemetryOffline ? "text-amber-500" : "text-emerald-500"}>
+                        {diagnostics.isTelemetryOffline ? "Signal Inactive" : "Active Link"}
+                      </strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-slate-400 block">Battery Working Level</span>
+                      <strong className={diagnostics.isLowBattery ? "text-rose-500" : "text-emerald-500"}>
+                        {diagnostics.batteryMv ? `${(diagnostics.batteryMv / 1000).toFixed(2)} V` : "N/A"} {diagnostics.isLowBattery ? "(Under 11.8V)" : "(Healthy)"}
+                      </strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      <span className="text-slate-400 block">Offline Sensor Inputs</span>
+                      <strong className={diagnostics.droppedSensors.length ? "text-rose-500" : "text-emerald-500"}>
+                        {diagnostics.droppedSensors.length ? diagnostics.droppedSensors.join(", ") : "None (All online)"}
+                      </strong>
+                    </div>
                   </div>
-                  <div className="pt-2 flex items-center justify-end gap-2">
-                    <button 
-                      type="button" 
-                      onClick={() => setShowFeedbackModal(false)}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold transition"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition shadow-md shadow-emerald-500/25"
-                    >
-                      <i data-lucide="send" className="w-3.5 h-3.5"></i>
-                      <span>Submit & Send Email</span>
-                    </button>
-                  </div>
-                </form>
+                </div>
+              )}
+            </div>
+
+            {/* Telemetry Status Bar */}
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2 bg-white dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></span>
+                  Station: <strong className="text-slate-800 dark:text-slate-200">{selectedStation.name}</strong>
+                </span>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-3 text-[11px]">
+                <span>MAC: <code className="font-mono text-slate-700 dark:text-slate-300">{cardData?.device?.mac || "N/A"}</code></span>
+                <span>Updated: <strong className="text-slate-800 dark:text-slate-200">{lastRefreshed || "--"}</strong></span>
               </div>
             </div>
-          )}
-        </div>
-      );
-    }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
-</body>
-</html>
+            {/* Metric Cards Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3.5 mt-5">
+              <MetricCard 
+                title="Temperature"
+                value={latestMetrics["temperature"]?.value} 
+                unit={latestMetrics["temperature"]?.unit === "?" ? "°C" : (latestMetrics["temperature"]?.unit || "°C")} 
+                icon="thermometer"
+                color="bg-amber-500"
+                timestamp={latestMetrics["temperature"]?.created_at} 
+                isStale={checkStale(latestMetrics["temperature"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("temperature")} 
+              />
+              <MetricCard 
+                title="Rainfall"
+                value={latestMetrics["rainfall"]?.value} 
+                unit={latestMetrics["rainfall"]?.unit || "mm"} 
+                icon="cloud-rain"
+                color="bg-blue-500"
+                timestamp={latestMetrics["rainfall"]?.created_at} 
+                isStale={checkStale(latestMetrics["rainfall"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("rainfall")} 
+              />
+              <MetricCard 
+                title="Humidity"
+                value={latestMetrics["humidity"]?.value} 
+                unit={latestMetrics["humidity"]?.unit || "%"} 
+                icon="droplets"
+                color="bg-cyan-500"
+                timestamp={latestMetrics["humidity"]?.created_at} 
+                isStale={checkStale(latestMetrics["humidity"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("humidity")} 
+              />
+              <MetricCard 
+                title="Air Pressure"
+                value={latestMetrics["air_pressure"]?.value} 
+                unit={latestMetrics["air_pressure"]?.unit || "Kpa"} 
+                icon="gauge"
+                color="bg-purple-500"
+                timestamp={latestMetrics["air_pressure"]?.created_at} 
+                isStale={checkStale(latestMetrics["air_pressure"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("air_pressure")} 
+              />
+              <MetricCard 
+                title="Wind Velocity"
+                value={latestMetrics["wind_velocity"]?.value} 
+                unit={latestMetrics["wind_velocity"]?.unit || "m/s"} 
+                icon="wind"
+                color="bg-teal-500"
+                timestamp={latestMetrics["wind_velocity"]?.created_at} 
+                isStale={checkStale(latestMetrics["wind_velocity"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("wind_velocity")} 
+              />
+              
+              {latestMetrics["wind_direction"] && (
+                <MetricCard 
+                  title="Wind Direction"
+                  value={latestMetrics["wind_direction"]?.value} 
+                  unit="°"
+                  icon="compass"
+                  color="bg-sky-500"
+                  timestamp={latestMetrics["wind_direction"]?.created_at} 
+                  isStale={checkStale(latestMetrics["wind_direction"]?.created_at)} 
+                />
+              )}
+
+              <MetricCard 
+                title="Solar Radiation"
+                value={latestMetrics["solar_radiation"]?.value} 
+                unit={latestMetrics["solar_radiation"]?.unit || "w/m²"} 
+                icon="sun"
+                color="bg-yellow-500"
+                timestamp={latestMetrics["solar_radiation"]?.created_at} 
+                isStale={checkStale(latestMetrics["solar_radiation"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("solar_radiation")} 
+              />
+              <MetricCard 
+                title="Sunshine Hours"
+                value={latestMetrics["sunshine_hours"]?.value} 
+                unit={latestMetrics["sunshine_hours"]?.unit || "h"} 
+                icon="sun-medium"
+                color="bg-orange-400"
+                timestamp={latestMetrics["sunshine_hours"]?.created_at} 
+                isStale={checkStale(latestMetrics["sunshine_hours"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("sunshine_hours")} 
+              />
+              <MetricCard 
+                title="Soil Humidity"
+                value={latestMetrics["soil_humidity"]?.value} 
+                unit={latestMetrics["soil_humidity"]?.unit || "%"} 
+                icon="sprout"
+                color="bg-emerald-600"
+                timestamp={latestMetrics["soil_humidity"]?.created_at} 
+                isStale={checkStale(latestMetrics["soil_humidity"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("soil_humidity")} 
+              />
+              <MetricCard 
+                title="Soil Temp"
+                value={latestMetrics["soil_temperature"]?.value} 
+                unit={latestMetrics["soil_temperature"]?.unit === "?" ? "°C" : (latestMetrics["soil_temperature"]?.unit || "°C")} 
+                icon="thermometer"
+                color="bg-lime-600"
+                timestamp={latestMetrics["soil_temperature"]?.created_at} 
+                isStale={checkStale(latestMetrics["soil_temperature"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("soil_temperature")} 
+              />
+              <MetricCard 
+                title="CO2 Level"
+                value={latestMetrics["co2"]?.value} 
+                unit={latestMetrics["co2"]?.unit || "PPM"} 
+                icon="cloud"
+                color="bg-indigo-500"
+                timestamp={latestMetrics["co2"]?.created_at} 
+                isStale={checkStale(latestMetrics["co2"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("co2")} 
+              />
+              <MetricCard 
+                title="Illumination"
+                value={latestMetrics["illumination"]?.value} 
+                unit={latestMetrics["illumination"]?.unit || "LUX"} 
+                icon="lightbulb"
+                color="bg-amber-400"
+                timestamp={latestMetrics["illumination"]?.created_at} 
+                isStale={checkStale(latestMetrics["illumination"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("illumination")} 
+              />
+              <MetricCard 
+                title="PM 2.5"
+                value={latestMetrics["pm25"]?.value} 
+                unit={latestMetrics["pm25"]?.unit || "ug/m³"} 
+                icon="wind"
+                color="bg-rose-400"
+                timestamp={latestMetrics["pm25"]?.created_at} 
+                isStale={checkStale(latestMetrics["pm25"]?.created_at)} 
+                badge={getAqiBadge("pm25", latestMetrics["pm25"]?.value)}
+                isDropped={diagnostics.droppedSensors.includes("pm25")} 
+              />
+              <MetricCard 
+                title="PM 10"
+                value={latestMetrics["pm10"]?.value} 
+                unit={latestMetrics["pm10"]?.unit || "ug/m³"} 
+                icon="activity"
+                color="bg-rose-500"
+                timestamp={latestMetrics["pm10"]?.created_at} 
+                isStale={checkStale(latestMetrics["pm10"]?.created_at)} 
+                badge={getAqiBadge("pm10", latestMetrics["pm10"]?.value)}
+                isDropped={diagnostics.droppedSensors.includes("pm10")} 
+              />
+              <MetricCard 
+                title="Battery"
+                value={latestMetrics["battery_level"]?.value} 
+                unit={latestMetrics["battery_level"]?.unit || "mV"} 
+                icon="battery-charging"
+                color={diagnostics.isLowBattery ? "bg-rose-500" : "bg-green-500"} 
+                timestamp={latestMetrics["battery_level"]?.created_at} 
+                isStale={checkStale(latestMetrics["battery_level"]?.created_at)} 
+                badge={diagnostics.isLowBattery ? { label: "Low", bg: "bg-rose-500/10 text-rose-500 border-rose-500/20" } : null}
+                isDropped={diagnostics.droppedSensors.includes("battery_level")} 
+              />
+              <MetricCard 
+                title="Solar Panel"
+                value={latestMetrics["solar_panel_voltage"]?.value} 
+                unit={latestMetrics["solar_panel_voltage"]?.unit || "mV"} 
+                icon="zap"
+                color="bg-amber-600"
+                timestamp={latestMetrics["solar_panel_voltage"]?.created_at} 
+                isStale={checkStale(latestMetrics["solar_panel_voltage"]?.created_at)} 
+                isDropped={diagnostics.droppedSensors.includes("solar_panel_voltage")} 
+              />
+            </div>
+
+            {/* Telemetry Tab: Matrix */}
+            <div className="mt-7 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+              <div 
+                onClick={() => {
+                  const next = !showTelemetry;
+                  setShowTelemetry(next);
+                  if (next && fiveDaysLogs.length === 0) {
+                    if (startDate || endDate) {
+                      fetchFullHistoricalLogs(selectedStation.id);
+                    } else {
+                      fetchRecentLogs(selectedStation.id);
+                    }
+                  }
+                }}
+                className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition text-left cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <i data-lucide="layers" className="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      Live Telemetry Feeds
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {loadingLogs ? "Loading records..." : (pivotedTelemetryRows.length > 0 ? `${pivotedTelemetryRows.length} time records` : "Click to view logs")}
+                      </span>
+                    </h2>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      {showTelemetry ? "Click to collapse telemetry table" : "Expand to view matrix breakdown across all monitored metrics"}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-slate-400 text-xs font-bold">{showTelemetry ? "▲" : "▼"}</span>
+              </div>
+
+              {showTelemetry && (
+                <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-3 gap-2.5">
+                    <div>
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
+                        Showing {pivotedTelemetryRows.length} recent transmissions
+                      </p>
+                    </div>
+                    
+                    {/* Filter Group: Parameter Filter + Single Date Dropdown + Custom Date Range */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Parameter Selector Dropdown */}
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                        <i data-lucide="sliders-horizontal" className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0"></i>
+                        <select
+                          value={selectedParam}
+                          onChange={(e) => setSelectedParam(e.target.value)}
+                          className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                        >
+                          <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                            All Parameters ({selectedStation.id === "main" ? "16" : "15"})
+                          </option>
+                          {TELEMETRY_COLUMNS.filter(c => !(c.campusOnly && selectedStation.id !== "main")).map(col => (
+                            <option key={col.key} value={col.key} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                              {col.label} ({col.unit})
+                            </option>
+                          ))}
+                        </select>
+                        {selectedParam !== "all" && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedParam("all")}
+                            title="Show All Parameters"
+                            className="text-slate-400 hover:text-rose-500 text-xs px-0.5 font-bold cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Single Date Selector Dropdown */}
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                        <select 
+                          value={selectedDate} 
+                          onChange={(e) => {
+                            setSelectedDate(e.target.value);
+                            if (e.target.value) {
+                              setStartDate("");
+                              setEndDate("");
+                            }
+                          }}
+                          className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                        >
+                          <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Recent Dates</option>
+                          {availableDates.map(date => {
+                            const [y, m, d] = date.split("-");
+                            const displayDate = (y && m && d) ? `${d}-${m}-${y}` : date;
+                            return (
+                              <option key={date} value={date} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                                {displayDate}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        {selectedDate && (
+                          <button 
+                            type="button" 
+                            onClick={() => setSelectedDate("")} 
+                            title="Clear Date Filter" 
+                            className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Custom Range: From & To Date Pickers */}
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-sm">
+                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span>From:</span>
+                          <input 
+                            type="date" 
+                            value={startDate}
+                            max={endDate || undefined}
+                            onChange={(e) => {
+                              setStartDate(e.target.value);
+                              setSelectedDate("");
+                            }}
+                            className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                          />
+                        </div>
+
+                        <span className="text-slate-300 dark:text-slate-700 font-bold">|</span>
+
+                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          <span>To:</span>
+                          <input 
+                            type="date" 
+                            value={endDate}
+                            min={startDate || undefined}
+                            onChange={(e) => {
+                              setEndDate(e.target.value);
+                              setSelectedDate("");
+                            }}
+                            className="bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                          />
+                        </div>
+
+                        {(startDate || endDate) && (
+                          <button 
+                            type="button" 
+                            onClick={() => { 
+                              setStartDate(""); 
+                              setEndDate(""); 
+                              fetchRecentLogs(selectedStation.id);
+                            }} 
+                            title="Clear Date Range" 
+                            className="text-xs text-rose-500 hover:text-rose-600 font-bold ml-1 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {loadingLogs ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500">
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-medium">Fetching historical records...</span>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[500px] border border-slate-200 dark:border-slate-800 rounded-xl">
+                      <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 relative whitespace-nowrap border-collapse">
+                        <thead className="bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-sm backdrop-blur-sm">
+                          <tr className="border-b border-slate-200 dark:border-slate-700">
+                            <th className="py-3 px-4 font-bold sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 border-r border-slate-200 dark:border-slate-700 min-w-[160px]">
+                              <div>Observed Date & Time</div>
+                              <span className="text-[10px] lowercase text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                            </th>
+
+                            {activeColumns.map(col => (
+                              <th key={col.key} className="py-2.5 px-3 font-semibold text-center min-w-[120px] border-r border-slate-200/60 dark:border-slate-700/60">
+                                <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                                  {col.label}
+                                </div>
+                                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium lowercase">
+                                  ({col.unit})
+                                </span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
+                          {pivotedTelemetryRows.length > 0 ? (
+                            pivotedTelemetryRows.map((row, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                                <td className="py-2 px-4 font-semibold text-slate-900 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+                                  {formatTimestamp(row.timestamp)}
+                                </td>
+
+                                {activeColumns.map(col => {
+                                  const val = row[col.key];
+                                  return (
+                                    <td key={col.key} className="py-2 px-3 text-center border-r border-slate-100 dark:border-slate-800/50">
+                                      {val !== undefined && val !== null && val !== "" ? (
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                                          {val}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300 dark:text-slate-600">--</span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={activeColumns.length + 1} className="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
+                                No records found for the selected timeframe.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Total Parameters Modal */}
+            {showParamModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[85vh]">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <i data-lucide="clipboard-list" className="w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                          AWS Monitored Parameters
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Configured sensor parameters across both stations
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowParamModal(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      <i data-lucide="x" className="w-5 h-5"></i>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-y-auto pr-1 text-xs">
+                    <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs uppercase tracking-wider">
+                          {STATION_PARAMS_INFO.farm.name}
+                        </span>
+                        <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          {STATION_PARAMS_INFO.farm.count} Parameters
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
+                        {STATION_PARAMS_INFO.farm.params.map((p, idx) => (
+                          <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
+                            <span>{idx + 1}. {p.name}</span>
+                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                        <span className="font-bold text-sky-600 dark:text-sky-400 text-xs uppercase tracking-wider">
+                          {STATION_PARAMS_INFO.main.name}
+                        </span>
+                        <span className="text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full border border-sky-500/20">
+                          {STATION_PARAMS_INFO.main.count} Parameters
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5 text-slate-600 dark:text-slate-300">
+                        {STATION_PARAMS_INFO.main.params.map((p, idx) => (
+                          <li key={idx} className="flex items-center justify-between py-0.5 border-b border-slate-100 dark:border-slate-800/50">
+                            <span className={p.special ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                              {idx + 1}. {p.name} {p.special && "★"}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{p.unit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                    <button
+                      onClick={() => setShowParamModal(false)}
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Feedback & Anomaly Reporting Modal */}
+            {showFeedbackModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 flex flex-col max-h-[90vh]">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <i data-lucide="message-square-warning" className="w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                          Feedback
+                        </h3>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowFeedbackModal(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      <i data-lucide="x" className="w-5 h-5"></i>
+                    </button>
+                  </div>
+                  <form onSubmit={handleSendFeedbackEmail} className="mt-4 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                          Your Name (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={feedbackName}
+                          onChange={(e) => setFeedbackName(e.target.value)}
+                          placeholder="e.g., XYZ"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                          Designation / Role (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={feedbackDesignation}
+                          onChange={(e) => setFeedbackDesignation(e.target.value)}
+                          placeholder="e.g., XYZ"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                          Select Station
+                        </label>
+                        <select
+                          value={feedbackStation}
+                          onChange={(e) => setFeedbackStation(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500"
+                        >
+                          <option value="IIWM FARM MENDHASAL">IIWM FARM MENDHASAL</option>
+                          <option value="IIWM CAMPUS BHUBANESWAR">IIWM CAMPUS BHUBANESWAR</option>
+                          <option value="Both Stations / General UI">Both Stations / Dashboard Issue</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                          Affected Metric (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          value={feedbackParam}
+                          onChange={(e) => setFeedbackParam(e.target.value)}
+                          placeholder="e.g., Soil Humidity, Battery, PM 2.5"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Description of Issue / Feedback <span className="text-rose-500">*</span>
+                      </label>
+                      <textarea 
+                        rows="3"
+                        required
+                        value={feedbackDesc}
+                        onChange={(e) => setFeedbackDesc(e.target.value)}
+                        placeholder="What the issue?"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-emerald-500 resize-none"
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Upload Screenshot / Photo (Optional)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 cursor-pointer text-slate-600 dark:text-slate-400 transition bg-slate-50 dark:bg-slate-950">
+                          <i data-lucide="image" className="w-4 h-4 text-emerald-500"></i>
+                          <span>{feedbackImageName ? "Change Photo" : "Choose File"}</span>
+                          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        </label>
+                        {feedbackImageName && (
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate max-w-[200px]">
+                            {feedbackImageName}
+                          </span>
+                        )}
+                      </div>
+                      {feedbackImagePreview && (
+                        <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <img src={feedbackImagePreview} alt="Feedback preview" className="w-full h-full object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => { setFeedbackImageName(""); setFeedbackImagePreview(null); }}
+                            className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-0.5"
+                          >
+                            <i data-lucide="x" className="w-3 h-3"></i>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pt-2 flex items-center justify-end gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setShowFeedbackModal(false)}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold transition"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition shadow-md shadow-emerald-500/25"
+                      >
+                        <i data-lucide="send" className="w-3.5 h-3.5"></i>
+                        <span>Submit & Send Email</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+  </html>
