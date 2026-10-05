@@ -551,7 +551,7 @@
             const link = document.createElement("a");
             const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
             link.href = url;
-            link.download = `AWS_${selectedStation.id}_MATRIX_${fileTimestamp}.csv`;
+            link.download = `AWS_${selectedStation.id}_DATA_${fileTimestamp}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -975,7 +975,7 @@
                       </span>
                     </h2>
                     <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      {showTelemetry ? "Click to collapse telemetry table" : "Expand to view matrix breakdown across all monitored metrics"}
+                      {showTelemetry ? "Click to collapse telemetry table" : "Expand to view DATA breakdown across all monitored metrics"}
                     </p>
                   </div>
                 </div>
